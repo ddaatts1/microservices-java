@@ -1,3 +1,7 @@
+param(
+  [string[]]$ServicesToDeploy = @()
+)
+
 . (Join-Path $PSScriptRoot "common.ps1")
 
 # Build va push image cho toan bo services len ACR.
@@ -10,11 +14,16 @@ Assert-DockerDaemon
 
 $repoRoot = Get-RepoRoot
 $loginServer = Get-AcrLoginServer $AcrName $ResourceGroup
+$selectedServices = if ($ServicesToDeploy.Count -gt 0) { $ServicesToDeploy } else { $Services }
 
 Write-Host "Logging in to Azure Container Registry: $AcrName"
 az acr login --name $AcrName --only-show-errors 1>$null
 
-foreach ($service in $Services) {
+foreach ($service in $selectedServices) {
+  if ($Services -notcontains $service) {
+    throw "Unknown service '$service'. Allowed values: $($Services -join ', ')"
+  }
+
   $servicePath = Join-Path (Join-Path $repoRoot "services") $service
   $image = "$loginServer/$service`:$ImageTag"
 
@@ -29,4 +38,4 @@ foreach ($service in $Services) {
   docker push $image
 }
 
-Write-Host "All images pushed to $loginServer"
+Write-Host "Images pushed to $loginServer for: $($selectedServices -join ', ')"

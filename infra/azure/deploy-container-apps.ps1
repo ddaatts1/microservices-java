@@ -1,3 +1,7 @@
+param(
+  [string[]]$ServicesToDeploy = @()
+)
+
 . (Join-Path $PSScriptRoot "common.ps1")
 
 # Deploy hoac cap nhat tat ca Container App tren Azure.
@@ -22,6 +26,17 @@ if ([string]::IsNullOrWhiteSpace($postgresHost)) {
 }
 if ([string]::IsNullOrWhiteSpace($postgresHost)) {
   throw "Could not resolve PostgreSQL host for server '$PostgresServerName'."
+}
+
+$selectedServices = if ($ServicesToDeploy.Count -gt 0) { $ServicesToDeploy } else { $Services }
+foreach ($service in $selectedServices) {
+  if ($Services -notcontains $service) {
+    throw "Unknown service '$service'. Allowed values: $($Services -join ', ')"
+  }
+}
+
+function Test-ShouldDeploy([string]$Name) {
+  return $selectedServices -contains $Name
 }
 
 function Test-ContainerAppExists([string]$Name) {
@@ -130,56 +145,67 @@ function DbEnv([string]$DatabaseName) {
 
 $dbSecret = @("db-password=$PostgresAdminPassword")
 
-Upsert-ContainerApp `
-  -Name "user-service" `
-  -Image "$loginServer/user-service`:$ImageTag" `
-  -Ingress internal `
-  -EnvVars (DbEnv "user_db") `
-  -Secrets $dbSecret
+if (Test-ShouldDeploy "user-service") {
+  Upsert-ContainerApp `
+    -Name "user-service" `
+    -Image "$loginServer/user-service`:$ImageTag" `
+    -Ingress internal `
+    -EnvVars (DbEnv "user_db") `
+    -Secrets $dbSecret
+}
 
-Upsert-ContainerApp `
-  -Name "product-service" `
-  -Image "$loginServer/product-service`:$ImageTag" `
-  -Ingress internal `
-  -EnvVars (DbEnv "product_db") `
-  -Secrets $dbSecret
+if (Test-ShouldDeploy "product-service") {
+  Upsert-ContainerApp `
+    -Name "product-service" `
+    -Image "$loginServer/product-service`:$ImageTag" `
+    -Ingress internal `
+    -EnvVars (DbEnv "product_db") `
+    -Secrets $dbSecret
+}
 
-Upsert-ContainerApp `
-  -Name "notification-service" `
-  -Image "$loginServer/notification-service`:$ImageTag" `
-  -Ingress internal `
-  -EnvVars (DbEnv "notification_db") `
-  -Secrets $dbSecret
+if (Test-ShouldDeploy "notification-service") {
+  Upsert-ContainerApp `
+    -Name "notification-service" `
+    -Image "$loginServer/notification-service`:$ImageTag" `
+    -Ingress internal `
+    -EnvVars (DbEnv "notification_db") `
+    -Secrets $dbSecret
+}
 
 $productUrl = Get-ContainerAppUrl "product-service"
 $notificationUrl = Get-ContainerAppUrl "notification-service"
 
-Upsert-ContainerApp `
-  -Name "order-service" `
-  -Image "$loginServer/order-service`:$ImageTag" `
-  -Ingress internal `
-  -EnvVars ((DbEnv "order_db") + @(
-    "PRODUCT_SERVICE_URL=$productUrl",
-    "NOTIFICATION_SERVICE_URL=$notificationUrl"
-  )) `
-  -Secrets $dbSecret
+if (Test-ShouldDeploy "order-service") {
+  Upsert-ContainerApp `
+    -Name "order-service" `
+    -Image "$loginServer/order-service`:$ImageTag" `
+    -Ingress internal `
+    -EnvVars ((DbEnv "order_db") + @(
+      "PRODUCT_SERVICE_URL=$productUrl",
+      "NOTIFICATION_SERVICE_URL=$notificationUrl"
+    )) `
+    -Secrets $dbSecret
+}
 
 $userUrl = Get-ContainerAppUrl "user-service"
 $orderUrl = Get-ContainerAppUrl "order-service"
 
-Upsert-ContainerApp `
-  -Name "gateway-service" `
-  -Image "$loginServer/gateway-service`:$ImageTag" `
-  -Ingress external `
-  -EnvVars @(
-    "SERVER_PORT=8080",
-    "SPRING_PROFILES_ACTIVE=prod",
-    "USER_SERVICE_URL=$userUrl",
-    "PRODUCT_SERVICE_URL=$productUrl",
-    "ORDER_SERVICE_URL=$orderUrl",
-    "NOTIFICATION_SERVICE_URL=$notificationUrl"
-  )
+if (Test-ShouldDeploy "gateway-service") {
+  Upsert-ContainerApp `
+    -Name "gateway-service" `
+    -Image "$loginServer/gateway-service`:$ImageTag" `
+    -Ingress external `
+    -EnvVars @(
+      "SERVER_PORT=8080",
+      "SPRING_PROFILES_ACTIVE=prod",
+      "USER_SERVICE_URL=$userUrl",
+      "PRODUCT_SERVICE_URL=$productUrl",
+      "ORDER_SERVICE_URL=$orderUrl",
+      "NOTIFICATION_SERVICE_URL=$notificationUrl"
+    )
+}
 
 $gatewayUrl = Get-ContainerAppUrl "gateway-service"
-Write-Host "Deploy complete. Gateway URL: $gatewayUrl"
+Write-Host "Deploy complete for: $($selectedServices -join ', ')"
+Write-Host "Gateway URL: $gatewayUrl"
 Write-Host "Smoke test: Invoke-RestMethod $gatewayUrl/api/health"

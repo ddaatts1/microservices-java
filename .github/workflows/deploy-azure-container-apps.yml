@@ -1,12 +1,34 @@
 name: Deploy Azure Container Apps
 
 on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - ".github/workflows/deploy-azure-container-apps.yml"
+      - "infra/azure/**"
+      - "pom.xml"
+      - "services/**"
   workflow_dispatch:
     inputs:
       image_tag:
         description: Image tag to build and deploy
         required: true
         default: latest
+      service:
+        description: Service to deploy, or all
+        required: true
+        type: choice
+        default: auto
+        options:
+          - auto
+          - all
+          - user-service
+          - product-service
+          - notification-service
+          - order-service
+          - gateway-service
 
 jobs:
   deploy:
@@ -15,13 +37,78 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select services to deploy
+        id: select-services
+        shell: pwsh
+        run: |
+          $allServices = @("user-service", "product-service", "notification-service", "order-service", "gateway-service")
+          $manualService = "${{ github.event.inputs.service }}"
+
+          if ("${{ github.event_name }}" -eq "workflow_dispatch" -and $manualService -and $manualService -ne "auto") {
+            if ($manualService -eq "all") {
+              $selected = $allServices
+            } else {
+              $selected = @($manualService)
+            }
+          } else {
+            if ("${{ github.event_name }}" -eq "push") {
+              $base = "${{ github.event.before }}"
+              $head = "${{ github.sha }}"
+              if ($base -match "^0+$") {
+                $changed = git diff --name-only "$head~1" $head
+              } else {
+                $changed = git diff --name-only $base $head
+              }
+            } else {
+              $changed = git diff --name-only HEAD~1 HEAD
+            }
+
+            $deployAll = $false
+            $selected = @()
+
+            foreach ($path in $changed) {
+              if ($path -eq "pom.xml" -or $path -like "infra/azure/*" -or $path -like ".github/workflows/*") {
+                $deployAll = $true
+                break
+              }
+
+              foreach ($service in $allServices) {
+                if ($path -like "services/$service/*") {
+                  $selected += $service
+                }
+              }
+            }
+
+            if ($deployAll) {
+              $selected = $allServices
+            } else {
+              $selected = $selected | Select-Object -Unique
+            }
+          }
+
+          if (-not $selected -or $selected.Count -eq 0) {
+            "skip=true" >> $env:GITHUB_OUTPUT
+            "services=" >> $env:GITHUB_OUTPUT
+            Write-Host "No service changes detected. Skipping deploy."
+            exit 0
+          }
+
+          $servicesArg = $selected -join ","
+          "skip=false" >> $env:GITHUB_OUTPUT
+          "services=$servicesArg" >> $env:GITHUB_OUTPUT
+          Write-Host "Selected services: $servicesArg"
 
       - name: Azure login
+        if: steps.select-services.outputs.skip != 'true'
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Generate Azure env config
+        if: steps.select-services.outputs.skip != 'true'
         shell: pwsh
         run: |
           @"
@@ -39,22 +126,30 @@ jobs:
           `$PostgresSku = "${{ vars.AZURE_POSTGRES_SKU }}"
           `$PostgresTier = "${{ vars.AZURE_POSTGRES_TIER }}"
           `$PostgresVersion = "${{ vars.AZURE_POSTGRES_VERSION }}"
-          `$ImageTag = "${{ inputs.image_tag }}"
+          `$ImageTag = "${{ github.event.inputs.image_tag || 'latest' }}"
           `$Services = @("user-service", "product-service", "notification-service", "order-service", "gateway-service")
           "@ | Set-Content -Path infra/azure/env.ps1 -Encoding UTF8
 
       - name: Create or update Azure infra
+        if: steps.select-services.outputs.skip != 'true'
         shell: pwsh
         run: ./infra/azure/create-infra.ps1
 
       - name: Build and push service images
+        if: steps.select-services.outputs.skip != 'true'
         shell: pwsh
-        run: ./infra/azure/build-push-images.ps1
+        run: |
+          $services = "${{ steps.select-services.outputs.services }}".Split(",", [System.StringSplitOptions]::RemoveEmptyEntries)
+          ./infra/azure/build-push-images.ps1 -ServicesToDeploy $services
 
       - name: Deploy Container Apps
+        if: steps.select-services.outputs.skip != 'true'
         shell: pwsh
-        run: ./infra/azure/deploy-container-apps.ps1
+        run: |
+          $services = "${{ steps.select-services.outputs.services }}".Split(",", [System.StringSplitOptions]::RemoveEmptyEntries)
+          ./infra/azure/deploy-container-apps.ps1 -ServicesToDeploy $services
 
       - name: Smoke test gateway
+        if: steps.select-services.outputs.skip != 'true'
         shell: pwsh
         run: ./infra/azure/test-gateway-smoke.ps1

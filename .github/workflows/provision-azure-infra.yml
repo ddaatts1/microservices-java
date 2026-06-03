@@ -1,0 +1,48 @@
+name: Provision Azure Infrastructure
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: azure-infra-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Generate Azure env config
+        shell: pwsh
+        run: |
+          @"
+          `$ProjectName = "${{ vars.PROJECT_NAME }}"
+          `$EnvironmentName = "${{ vars.ENVIRONMENT_NAME }}"
+          `$Location = "${{ vars.AZURE_LOCATION }}"
+          `$ResourceGroup = "${{ vars.AZURE_RESOURCE_GROUP }}"
+          `$ContainerAppsEnv = "${{ vars.AZURE_CONTAINER_APPS_ENV }}"
+          `$LogAnalyticsWorkspace = "${{ vars.AZURE_LOG_ANALYTICS_WORKSPACE }}"
+          `$UserAssignedIdentity = "${{ vars.AZURE_USER_ASSIGNED_IDENTITY }}"
+          `$AcrName = "${{ vars.AZURE_CONTAINER_REGISTRY }}"
+          `$PostgresServerName = "${{ vars.AZURE_POSTGRES_SERVER }}"
+          `$PostgresAdminUser = "${{ vars.AZURE_POSTGRES_ADMIN_USER }}"
+          `$PostgresAdminPassword = "${{ secrets.AZURE_POSTGRES_ADMIN_PASSWORD }}"
+          `$PostgresSku = "${{ vars.AZURE_POSTGRES_SKU }}"
+          `$PostgresTier = "${{ vars.AZURE_POSTGRES_TIER }}"
+          `$PostgresVersion = "${{ vars.AZURE_POSTGRES_VERSION }}"
+          `$ImageTag = "infra"
+          `$Services = @("user-service", "product-service", "notification-service", "order-service", "gateway-service")
+          "@ | Set-Content -Path infra/azure/env.ps1 -Encoding UTF8
+
+      - name: Create or update Azure infrastructure
+        shell: pwsh
+        run: ./infra/azure/create-infra.ps1

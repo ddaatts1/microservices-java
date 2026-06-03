@@ -208,4 +208,3 @@ if (Test-ShouldDeploy "gateway-service") {
 $gatewayUrl = Get-ContainerAppUrl "gateway-service"
 Write-Host "Deploy complete for: $($selectedServices -join ', ')"
 Write-Host "Gateway URL: $gatewayUrl"
-Write-Host "Smoke test: Invoke-RestMethod $gatewayUrl/api/health"

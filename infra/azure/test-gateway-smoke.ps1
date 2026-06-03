@@ -49,8 +49,8 @@ foreach ($test in $tests) {
       Uri = $test.Url
       TimeoutSec = 60
     }
-    if ($test.Headers) { $params.Headers = $test.Headers }
-    if ($test.Body) { $params.Body = $test.Body }
+    if ($test.ContainsKey("Headers")) { $params.Headers = $test.Headers }
+    if ($test.ContainsKey("Body")) { $params.Body = $test.Body }
 
     $result = Invoke-RestMethod @params
     $json = $result | ConvertTo-Json -Depth 10
@@ -60,7 +60,8 @@ foreach ($test in $tests) {
     Write-Host "OK $json"
   } catch {
     Write-Host "ERROR $($_.Exception.Message)"
-    if ($_.Exception.Response) {
+    $hasResponse = $null -ne $_.Exception -and $_.Exception.PSObject.Properties.Match('Response').Count -gt 0
+    if ($hasResponse -and $_.Exception.Response) {
       $status = [int]$_.Exception.Response.StatusCode
       $description = $_.Exception.Response.StatusDescription
       Write-Host "STATUS $status $description"

@@ -1,0 +1,77 @@
+name: Diagnose Azure Container Apps
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: Container App to inspect, or all
+        required: true
+        type: choice
+        default: all
+        options:
+          - all
+          - gateway-service
+          - user-service
+          - product-service
+          - order-service
+          - notification-service
+      lines:
+        description: Log lines per app
+        required: true
+        default: "120"
+
+jobs:
+  logs:
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Collect Container Apps logs
+        shell: pwsh
+        run: |
+          $resourceGroup = "${{ vars.AZURE_RESOURCE_GROUP }}"
+          $requestedService = "${{ github.event.inputs.service }}"
+          $lines = [int]"${{ github.event.inputs.lines }}"
+          $allServices = @(
+            "gateway-service",
+            "user-service",
+            "product-service",
+            "order-service",
+            "notification-service"
+          )
+
+          if ($requestedService -eq "all") {
+            $services = $allServices
+          } else {
+            $services = @($requestedService)
+          }
+
+          az extension add --name containerapp --upgrade --only-show-errors
+
+          foreach ($service in $services) {
+            Write-Host ""
+            Write-Host "============================================================"
+            Write-Host "Container App: $service"
+            Write-Host "============================================================"
+
+            Write-Host ""
+            Write-Host "Revision status:"
+            az containerapp revision list `
+              --name $service `
+              --resource-group $resourceGroup `
+              --query "[].{name:name,active:properties.active,traffic:properties.trafficWeight,created:properties.createdTime,replicas:properties.replicas,health:properties.healthState,running:properties.runningState}" `
+              -o table
+
+            Write-Host ""
+            Write-Host "Recent logs:"
+            az containerapp logs show `
+              --name $service `
+              --resource-group $resourceGroup `
+              --tail $lines `
+              --only-show-errors
+          }

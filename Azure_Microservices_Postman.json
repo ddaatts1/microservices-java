@@ -1,0 +1,183 @@
+{
+    "info": {
+        "name": "Azure Microservices Demo",
+        "description": "Collection để test 5 microservices chạy trên Azure Container Apps",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "1. Health Check",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "{{baseUrl}}/api/health",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "health"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "2. Danh sách Sản phẩm",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "{{baseUrl}}/api/products",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "products"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "3. Thông tin User (Profile)",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "X-User-Id",
+                        "value": "user-001",
+                        "type": "text"
+                    },
+                    {
+                        "key": "X-User-Email",
+                        "value": "user001@example.com",
+                        "type": "text"
+                    }
+                ],
+                "url": {
+                    "raw": "{{baseUrl}}/api/me",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "me"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "4. Tạo Đơn hàng mới (Create Order)",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "X-User-Id",
+                        "value": "user-001",
+                        "type": "text"
+                    },
+                    {
+                        "key": "X-User-Email",
+                        "value": "user001@example.com",
+                        "type": "text"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json",
+                        "type": "text"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"productId\": \"11111111-1111-1111-1111-111111111111\",\n  \"quantity\": 2\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/orders",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "orders"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "5. Xem Đơn hàng của tôi",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "X-User-Id",
+                        "value": "user-001",
+                        "type": "text"
+                    }
+                ],
+                "url": {
+                    "raw": "{{baseUrl}}/api/orders/my",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "orders",
+                        "my"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "6. Test gửi Notification",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json",
+                        "type": "text"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"to\": \"user001@example.com\",\n  \"subject\": \"Hello from Azure\",\n  \"message\": \"This is a test notification from Postman\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/notifications/test",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "notifications",
+                        "test"
+                    ]
+                }
+            },
+            "response": []
+        }
+    ],
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "https://gateway-service.graybay-d4e6295a.southeastasia.azurecontainerapps.io",
+            "type": "string"
+        }
+    ]
+}

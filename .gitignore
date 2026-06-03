@@ -1,0 +1,8 @@
+target/
+.idea/
+.vscode/
+*.iml
+*.log
+.env
+infra/azure/env.ps1
+.DS_Store

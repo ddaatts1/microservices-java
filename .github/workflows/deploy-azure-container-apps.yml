@@ -1,0 +1,60 @@
+name: Deploy Azure Container Apps
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Image tag to build and deploy
+        required: true
+        default: latest
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Generate Azure env config
+        shell: pwsh
+        run: |
+          @"
+          `$ProjectName = "${{ vars.PROJECT_NAME }}"
+          `$EnvironmentName = "${{ vars.ENVIRONMENT_NAME }}"
+          `$Location = "${{ vars.AZURE_LOCATION }}"
+          `$ResourceGroup = "${{ vars.AZURE_RESOURCE_GROUP }}"
+          `$ContainerAppsEnv = "${{ vars.AZURE_CONTAINER_APPS_ENV }}"
+          `$LogAnalyticsWorkspace = "${{ vars.AZURE_LOG_ANALYTICS_WORKSPACE }}"
+          `$UserAssignedIdentity = "${{ vars.AZURE_USER_ASSIGNED_IDENTITY }}"
+          `$AcrName = "${{ vars.AZURE_CONTAINER_REGISTRY }}"
+          `$PostgresServerName = "${{ vars.AZURE_POSTGRES_SERVER }}"
+          `$PostgresAdminUser = "${{ vars.AZURE_POSTGRES_ADMIN_USER }}"
+          `$PostgresAdminPassword = "${{ secrets.AZURE_POSTGRES_ADMIN_PASSWORD }}"
+          `$PostgresSku = "${{ vars.AZURE_POSTGRES_SKU }}"
+          `$PostgresTier = "${{ vars.AZURE_POSTGRES_TIER }}"
+          `$PostgresVersion = "${{ vars.AZURE_POSTGRES_VERSION }}"
+          `$ImageTag = "${{ inputs.image_tag }}"
+          `$Services = @("user-service", "product-service", "notification-service", "order-service", "gateway-service")
+          "@ | Set-Content -Path infra/azure/env.ps1 -Encoding UTF8
+
+      - name: Create or update Azure infra
+        shell: pwsh
+        run: ./infra/azure/create-infra.ps1
+
+      - name: Build and push service images
+        shell: pwsh
+        run: ./infra/azure/build-push-images.ps1
+
+      - name: Deploy Container Apps
+        shell: pwsh
+        run: ./infra/azure/deploy-container-apps.ps1
+
+      - name: Smoke test gateway
+        shell: pwsh
+        run: ./infra/azure/test-gateway-smoke.ps1

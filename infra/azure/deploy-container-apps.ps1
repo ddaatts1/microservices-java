@@ -122,7 +122,7 @@ function DbEnv([string]$DatabaseName) {
   return @(
     "SERVER_PORT=8080",
     "SPRING_PROFILES_ACTIVE=prod",
-    "SPRING_DATASOURCE_URL=jdbc:postgresql://$postgresHost:5432/${DatabaseName}?sslmode=require",
+    "SPRING_DATASOURCE_URL=jdbc:postgresql://${postgresHost}:5432/${DatabaseName}?sslmode=require",
     "SPRING_DATASOURCE_USERNAME=$PostgresAdminUser",
     "SPRING_DATASOURCE_PASSWORD=secretref:db-password"
   )

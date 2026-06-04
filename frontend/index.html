@@ -8,7 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
-  <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3/dist/msal-browser.min.js"></script>
+  <!-- MSAL.js local (đã tải về) -->
+  <script src="./msal-browser.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -434,6 +435,13 @@ let currentAccount = null;
 let accessToken = null;
 
 async function initMsal() {
+  // Kiểm tra MSAL đã load chưa
+  if (typeof msal === 'undefined') {
+    document.getElementById("nav-actions").innerHTML =
+      `<span style="color:var(--danger);font-size:13px;">⚠️ Không load được MSAL.js. Kiểm tra kết nối mạng.</span>`;
+    return;
+  }
+
   try {
     msalInstance = new msal.PublicClientApplication(MSAL_CONFIG);
     await msalInstance.initialize();
@@ -447,7 +455,7 @@ async function initMsal() {
     }
 
     const accounts = msalInstance.getAllAccounts();
-    if (accounts.length > 0) {
+    if (accounts.length > 0 && !currentAccount) {
       currentAccount = accounts[0];
     }
 

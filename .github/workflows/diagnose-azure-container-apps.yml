@@ -35,6 +35,7 @@ jobs:
         shell: pwsh
         run: |
           $resourceGroup = "${{ vars.AZURE_RESOURCE_GROUP }}"
+          $LogAnalyticsWorkspace = "${{ vars.AZURE_LOG_ANALYTICS_WORKSPACE }}"
           $requestedService = "${{ github.event.inputs.service }}"
           $lines = [int]"${{ github.event.inputs.lines }}"
           $allServices = @(
@@ -74,4 +75,14 @@ jobs:
               --resource-group $resourceGroup `
               --tail $lines `
               --only-show-errors
+
+            Write-Host ""
+            Write-Host "System Logs (Errors/Warnings):"
+            $query = "ContainerAppSystemLogs_CL | where ContainerAppName_s == '$service' | where Log_s contains 'failed' or Log_s contains 'error' or Log_s contains 'OOM' or Log_s contains 'killed' | project TimeGenerated, Log_s, Reason_s | order by TimeGenerated desc | limit 20"
+            $workspaceId = az monitor log-analytics workspace show --resource-group $resourceGroup --workspace-name $LogAnalyticsWorkspace --query customerId -o tsv
+            if ($workspaceId) {
+                az monitor log-analytics query -w $workspaceId --analytics-query $query -o table
+            } else {
+                Write-Host "Could not find Log Analytics workspace to query system logs."
+            }
           }

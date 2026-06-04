@@ -36,6 +36,10 @@ foreach ($service in $selectedServices) {
   }
 }
 
+$authEnabledValue = if (Get-Variable -Name AuthEnabled -ErrorAction SilentlyContinue) { $AuthEnabled } else { "false" }
+$authIssuerUriValue = if (Get-Variable -Name AuthIssuerUri -ErrorAction SilentlyContinue) { $AuthIssuerUri } else { "" }
+$authAudienceValue = if (Get-Variable -Name AuthAudience -ErrorAction SilentlyContinue) { $AuthAudience } else { "" }
+
 function Test-ShouldDeploy([string]$Name) {
   return $selectedServices -contains $Name
 }
@@ -207,7 +211,10 @@ if (Test-ShouldDeploy "gateway-service") {
       "USER_SERVICE_URL=$userUrl",
       "PRODUCT_SERVICE_URL=$productUrl",
       "ORDER_SERVICE_URL=$orderUrl",
-      "NOTIFICATION_SERVICE_URL=$notificationUrl"
+      "NOTIFICATION_SERVICE_URL=$notificationUrl",
+      "AUTH_ENABLED=$authEnabledValue",
+      "AUTH_ISSUER_URI=$authIssuerUriValue",
+      "AUTH_AUDIENCE=$authAudienceValue"
     )
 }
 

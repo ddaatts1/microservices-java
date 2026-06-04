@@ -2,6 +2,12 @@ spring:
   application:
     name: gateway-service
 
+app:
+  auth:
+    enabled: ${AUTH_ENABLED:false}
+    issuer-uri: ${AUTH_ISSUER_URI:}
+    audience: ${AUTH_AUDIENCE:}
+
 server:
   port: ${SERVER_PORT:8080}
 
@@ -10,4 +16,3 @@ management:
     web:
       exposure:
         include: health,info
-

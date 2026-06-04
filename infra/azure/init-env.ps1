@@ -92,6 +92,10 @@ $postgresServerName = "psql-$postgresProjectToken-$postgresEnvironmentToken-$suf
 
 `$ImageTag = "latest"
 
+`$AuthEnabled = "false"
+`$AuthIssuerUri = ""
+`$AuthAudience = ""
+
 `$Services = @(
   "user-service",
   "product-service",

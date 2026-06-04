@@ -23,6 +23,12 @@ $PostgresVersion = "16"
 # Used by image build/deploy scripts.
 $ImageTag = "latest"
 
+# Auth is disabled by default for local/demo deploy.
+# Set these after creating Microsoft Entra External ID app/API registrations.
+$AuthEnabled = "false"
+$AuthIssuerUri = ""
+$AuthAudience = ""
+
 $Services = @(
   "user-service",
   "product-service",
@@ -30,4 +36,3 @@ $Services = @(
   "order-service",
   "gateway-service"
 )
-

@@ -150,6 +150,9 @@ jobs:
           `$PostgresTier = "${{ vars.AZURE_POSTGRES_TIER }}"
           `$PostgresVersion = "${{ vars.AZURE_POSTGRES_VERSION }}"
           `$ImageTag = "${{ steps.select-services.outputs.image_tag }}"
+          `$AuthEnabled = "${{ vars.AUTH_ENABLED }}"
+          `$AuthIssuerUri = "${{ vars.AUTH_ISSUER_URI }}"
+          `$AuthAudience = "${{ vars.AUTH_AUDIENCE }}"
           `$Services = @("user-service", "product-service", "notification-service", "order-service", "gateway-service")
           "@ | Set-Content -Path infra/azure/env.ps1 -Encoding UTF8
 

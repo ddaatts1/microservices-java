@@ -58,6 +58,9 @@ function Import-DeployConfig {
     "PostgresTier",
     "PostgresVersion",
     "ImageTag",
+    "AuthEnabled",
+    "AuthIssuerUri",
+    "AuthAudience",
     "Services"
   )
 

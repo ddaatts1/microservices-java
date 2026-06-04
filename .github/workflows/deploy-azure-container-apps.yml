@@ -63,7 +63,11 @@ jobs:
           $deployMode = "${{ github.event.inputs.deploy_mode }}"
           $manualImageTag = "${{ github.event.inputs.image_tag }}"
           $runSha = "${{ github.event.workflow_run.head_sha || github.sha }}"
-          $imageTag = if ([string]::IsNullOrWhiteSpace($manualImageTag)) { $runSha } else { $manualImageTag }
+          if ($deployMode -eq "config-only" -and [string]::IsNullOrWhiteSpace($manualImageTag)) {
+            $imageTag = "current"
+          } else {
+            $imageTag = if ([string]::IsNullOrWhiteSpace($manualImageTag)) { $runSha } else { $manualImageTag }
+          }
           $forceRevision = "${{ github.event_name }}" -eq "workflow_dispatch" -and $deployMode -eq "config-only"
 
           if ("${{ github.event_name }}" -eq "workflow_dispatch" -and $manualService -and $manualService -ne "auto") {

@@ -96,10 +96,12 @@ function Upsert-ContainerApp {
       --identity $identityId `
       --only-show-errors 1>$null
 
+    $imageArgs = if ($Image -match ":current$") { @() } else { @("--image", $Image) }
+
     az containerapp update `
       --name $Name `
       --resource-group $ResourceGroup `
-      --image $Image `
+      @imageArgs `
       --replace-env-vars $effectiveEnvVars `
       --cpu $Cpu `
       --memory $Memory `

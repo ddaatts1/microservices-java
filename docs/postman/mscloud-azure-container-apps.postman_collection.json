@@ -1,195 +1,646 @@
 {
   "info": {
-    "_postman_id": "a8d8c3e6-d055-4b7f-a7bd-9b20f6d5f5e1",
-    "name": "MSCloud Azure Container Apps",
-    "description": "Postman collection for the deployed MSCloud microservices demo on Azure Container Apps. Auth is simulated with X-User-Id and X-User-Email headers; there are no login/register endpoints yet.",
+    "name": "MSCloud Microservices — Azure Container Apps",
+    "_postman_id": "mscloud-microservices-v2",
+    "description": "Bộ collection đầy đủ cho hệ thống MSCloud Microservices trên Azure Container Apps.\n\n## Cách dùng\n1. Import file này vào Postman\n2. Chọn Environment \"MSCloud - Azure\" đã import kèm\n3. Các request qua **Gateway** là luồng chính (production)\n4. Các request **Direct Service** dùng để debug nội bộ\n\n## Auth\n- Nếu AUTH_ENABLED=true: thêm Bearer JWT token vào header Authorization\n- Nếu AUTH_ENABLED=false: hệ thống dùng X-User-Id / X-User-Email header (dev mode)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
-  "item": [
-    {
-      "name": "Gateway Health",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{gatewayUrl}}/api/health",
-          "host": [
-            "{{gatewayUrl}}"
-          ],
-          "path": [
-            "api",
-            "health"
-          ]
-        }
-      }
-    },
-    {
-      "name": "Current User",
-      "request": {
-        "method": "GET",
-        "header": [
-          {
-            "key": "X-User-Id",
-            "value": "{{userId}}"
-          },
-          {
-            "key": "X-User-Email",
-            "value": "{{userEmail}}"
-          }
-        ],
-        "url": {
-          "raw": "{{gatewayUrl}}/api/me",
-          "host": [
-            "{{gatewayUrl}}"
-          ],
-          "path": [
-            "api",
-            "me"
-          ]
-        }
-      }
-    },
-    {
-      "name": "List Products",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{gatewayUrl}}/api/products",
-          "host": [
-            "{{gatewayUrl}}"
-          ],
-          "path": [
-            "api",
-            "products"
-          ]
-        }
-      }
-    },
-    {
-      "name": "Get Product By Id",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{gatewayUrl}}/api/products/{{productId}}",
-          "host": [
-            "{{gatewayUrl}}"
-          ],
-          "path": [
-            "api",
-            "products",
-            "{{productId}}"
-          ]
-        }
-      }
-    },
-    {
-      "name": "Create Order",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          },
-          {
-            "key": "X-User-Id",
-            "value": "{{userId}}"
-          },
-          {
-            "key": "X-User-Email",
-            "value": "{{userEmail}}"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"quantity\": 1\n}"
-        },
-        "url": {
-          "raw": "{{gatewayUrl}}/api/orders",
-          "host": [
-            "{{gatewayUrl}}"
-          ],
-          "path": [
-            "api",
-            "orders"
-          ]
-        }
-      }
-    },
-    {
-      "name": "My Orders",
-      "request": {
-        "method": "GET",
-        "header": [
-          {
-            "key": "X-User-Id",
-            "value": "{{userId}}"
-          },
-          {
-            "key": "X-User-Email",
-            "value": "{{userEmail}}"
-          }
-        ],
-        "url": {
-          "raw": "{{gatewayUrl}}/api/orders/my",
-          "host": [
-            "{{gatewayUrl}}"
-          ],
-          "path": [
-            "api",
-            "orders",
-            "my"
-          ]
-        }
-      }
-    },
-    {
-      "name": "Test Notification",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"to\": \"test@example.com\",\n  \"subject\": \"Azure Container Apps test\",\n  \"message\": \"Notification service is working\"\n}"
-        },
-        "url": {
-          "raw": "{{gatewayUrl}}/api/notifications/test",
-          "host": [
-            "{{gatewayUrl}}"
-          ],
-          "path": [
-            "api",
-            "notifications",
-            "test"
-          ]
-        }
-      }
-    }
-  ],
-  "event": [],
   "variable": [
     {
       "key": "gatewayUrl",
-      "value": "https://gateway-service.graybay-d4e6295a.southeastasia.azurecontainerapps.io"
+      "value": "https://gateway-service.graybay-d4e6295a.southeastasia.azurecontainerapps.io",
+      "type": "string"
     },
     {
       "key": "userId",
-      "value": "dev-user-001"
+      "value": "dev-user-001",
+      "type": "string"
     },
     {
       "key": "userEmail",
-      "value": "dev@example.com"
+      "value": "dev@example.com",
+      "type": "string"
     },
     {
       "key": "productId",
-      "value": "11111111-1111-1111-1111-111111111111"
+      "value": "11111111-1111-1111-1111-111111111111",
+      "type": "string"
+    },
+    {
+      "key": "orderId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "bearerToken",
+      "value": "",
+      "type": "string",
+      "description": "JWT Bearer token từ Entra External ID (chỉ cần nếu AUTH_ENABLED=true)"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔀 Gateway — Luồng chính (Production)",
+      "description": "Tất cả request đi qua Gateway service. Đây là luồng production thực tế.",
+      "item": [
+        {
+          "name": "✅ Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/health",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Kiểm tra gateway service có đang chạy không. Không cần auth."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "originalRequest": {
+                "method": "GET",
+                "url": { "raw": "{{gatewayUrl}}/api/health" }
+              },
+              "body": "{\"service\":\"gateway-service\",\"status\":\"UP\"}"
+            }
+          ]
+        },
+        {
+          "name": "👤 Lấy thông tin User hiện tại",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{userId}}",
+                "description": "Bỏ qua nếu dùng JWT Bearer Token"
+              },
+              {
+                "key": "X-User-Email",
+                "value": "{{userEmail}}",
+                "description": "Bỏ qua nếu dùng JWT Bearer Token"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "description": "Chỉ cần nếu AUTH_ENABLED=true",
+                "disabled": true
+              }
+            ],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/me",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "me"]
+            },
+            "description": "Lấy hoặc tạo mới profile của user hiện tại. Proxy tới user-service.\n\n**Cần Auth khi AUTH_ENABLED=true**"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "originalRequest": {
+                "method": "GET",
+                "url": { "raw": "{{gatewayUrl}}/api/me" }
+              },
+              "body": "{\n  \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"externalUserId\": \"dev-user-001\",\n  \"email\": \"dev@example.com\",\n  \"displayName\": \"dev@example.com\",\n  \"role\": \"USER\",\n  \"status\": \"ACTIVE\",\n  \"createdAt\": \"2026-06-01T00:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "📦 Lấy danh sách sản phẩm",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/products",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "products"]
+            },
+            "description": "Lấy toàn bộ danh sách sản phẩm. **Không cần Auth** (public endpoint)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "originalRequest": {
+                "method": "GET",
+                "url": { "raw": "{{gatewayUrl}}/api/products" }
+              },
+              "body": "[\n  {\n    \"id\": \"11111111-1111-1111-1111-111111111111\",\n    \"name\": \"Sample Product\",\n    \"price\": 29.99,\n    \"description\": \"A sample product\",\n    \"stock\": 100\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "📦 Lấy sản phẩm theo ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/products/{{productId}}",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "products", "{{productId}}"]
+            },
+            "description": "Lấy chi tiết một sản phẩm theo UUID. **Không cần Auth** (public endpoint).\n\nThay `{{productId}}` bằng UUID thực tế sau khi tạo sản phẩm."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "originalRequest": {
+                "method": "GET",
+                "url": { "raw": "{{gatewayUrl}}/api/products/{{productId}}" }
+              },
+              "body": "{\n  \"id\": \"11111111-1111-1111-1111-111111111111\",\n  \"name\": \"Sample Product\",\n  \"price\": 29.99,\n  \"description\": \"A sample product\",\n  \"stock\": 100\n}"
+            },
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "originalRequest": {
+                "method": "GET",
+                "url": { "raw": "{{gatewayUrl}}/api/products/{{productId}}" }
+              },
+              "body": ""
+            }
+          ]
+        },
+        {
+          "name": "🛒 Tạo đơn hàng mới",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "    if (body.id) {",
+                  "        pm.collectionVariables.set('orderId', body.id);",
+                  "        console.log('✅ orderId saved:', body.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-User-Id",
+                "value": "{{userId}}",
+                "description": "Bỏ qua nếu dùng JWT Bearer Token"
+              },
+              {
+                "key": "X-User-Email",
+                "value": "{{userEmail}}",
+                "description": "Bỏ qua nếu dùng JWT Bearer Token"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "description": "Chỉ cần nếu AUTH_ENABLED=true",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/orders",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "orders"]
+            },
+            "description": "Tạo đơn hàng mới. Proxy tới order-service.\n\n**Cần Auth khi AUTH_ENABLED=true**\n\nScript test sẽ tự động lưu `orderId` vào collection variable."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "originalRequest": {
+                "method": "POST",
+                "url": { "raw": "{{gatewayUrl}}/api/orders" }
+              },
+              "body": "{\n  \"id\": \"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\",\n  \"externalUserId\": \"dev-user-001\",\n  \"productId\": \"11111111-1111-1111-1111-111111111111\",\n  \"productName\": \"Sample Product\",\n  \"quantity\": 1,\n  \"unitPrice\": 29.99,\n  \"totalAmount\": 29.99,\n  \"status\": \"CREATED\",\n  \"createdAt\": \"2026-06-04T10:00:00Z\"\n}"
+            },
+            {
+              "name": "404 — Product not found",
+              "status": "Not Found",
+              "code": 404,
+              "originalRequest": {
+                "method": "POST",
+                "url": { "raw": "{{gatewayUrl}}/api/orders" }
+              },
+              "body": ""
+            }
+          ]
+        },
+        {
+          "name": "🛒 Lấy đơn hàng của tôi",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{userId}}",
+                "description": "Bỏ qua nếu dùng JWT Bearer Token"
+              },
+              {
+                "key": "X-User-Email",
+                "value": "{{userEmail}}",
+                "description": "Bỏ qua nếu dùng JWT Bearer Token"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{bearerToken}}",
+                "description": "Chỉ cần nếu AUTH_ENABLED=true",
+                "disabled": true
+              }
+            ],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/orders/my",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "orders", "my"]
+            },
+            "description": "Lấy tất cả đơn hàng của user hiện tại. **Cần Auth khi AUTH_ENABLED=true**"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "originalRequest": {
+                "method": "GET",
+                "url": { "raw": "{{gatewayUrl}}/api/orders/my" }
+              },
+              "body": "[\n  {\n    \"id\": \"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\",\n    \"externalUserId\": \"dev-user-001\",\n    \"productId\": \"11111111-1111-1111-1111-111111111111\",\n    \"productName\": \"Sample Product\",\n    \"quantity\": 1,\n    \"unitPrice\": 29.99,\n    \"totalAmount\": 29.99,\n    \"status\": \"CREATED\",\n    \"createdAt\": \"2026-06-04T10:00:00Z\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "🔔 Gửi Test Notification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": \"test@example.com\",\n  \"subject\": \"MSCloud — Test thành công!\",\n  \"message\": \"Notification service đang chạy tốt trên Azure Container Apps 🚀\"\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/notifications/test",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "notifications", "test"]
+            },
+            "description": "Gửi một notification test. Không cần Auth (public endpoint)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "originalRequest": {
+                "method": "POST",
+                "url": { "raw": "{{gatewayUrl}}/api/notifications/test" }
+              },
+              "body": "{\n  \"id\": \"ffffffff-eeee-dddd-cccc-bbbbbbbbbbbb\",\n  \"recipient\": \"test@example.com\",\n  \"subject\": \"MSCloud — Test thành công!\",\n  \"message\": \"Notification service đang chạy tốt trên Azure Container Apps 🚀\",\n  \"status\": \"SENT\",\n  \"createdAt\": \"2026-06-04T10:00:00Z\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🛠️ Admin — Direct Service (Debug only)",
+      "description": "Các endpoint này gọi thẳng vào từng service, KHÔNG qua Gateway. Chỉ dùng để debug nội bộ. Trên Azure, các service này là Internal (không public).",
+      "item": [
+        {
+          "name": "📦 Product Service",
+          "item": [
+            {
+              "name": "Tạo sản phẩm mới",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "if (pm.response.code === 200 || pm.response.code === 201) {",
+                      "    const body = pm.response.json();",
+                      "    if (body.id) {",
+                      "        pm.collectionVariables.set('productId', body.id);",
+                      "        console.log('✅ productId saved:', body.id);",
+                      "    }",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"iPhone 16 Pro\",\n  \"price\": 999.99,\n  \"description\": \"Latest iPhone with A18 chip\",\n  \"stock\": 50\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{gatewayUrl}}/api/products",
+                  "host": ["{{gatewayUrl}}"],
+                  "path": ["api", "products"]
+                },
+                "description": "⚠️ Endpoint này gọi trực tiếp vào product-service.\n\nScript test sẽ tự lưu `productId` vào collection variable để dùng cho các request khác."
+              }
+            },
+            {
+              "name": "Cập nhật sản phẩm",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"iPhone 16 Pro — Updated\",\n  \"price\": 899.99,\n  \"description\": \"Updated description\",\n  \"stock\": 45\n}",
+                  "options": { "raw": { "language": "json" } }
+                },
+                "url": {
+                  "raw": "{{gatewayUrl}}/api/products/{{productId}}",
+                  "host": ["{{gatewayUrl}}"],
+                  "path": ["api", "products", "{{productId}}"]
+                },
+                "description": "Cập nhật thông tin sản phẩm theo ID."
+              }
+            }
+          ]
+        },
+        {
+          "name": "👤 User Service",
+          "item": [
+            {
+              "name": "Lấy tất cả Users",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{gatewayUrl}}/api/users",
+                  "host": ["{{gatewayUrl}}"],
+                  "path": ["api", "users"]
+                },
+                "description": "Lấy danh sách toàn bộ users trong hệ thống. Chỉ dành cho admin."
+              }
+            },
+            {
+              "name": "Tìm User theo ID",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{gatewayUrl}}/api/users/{{userId}}",
+                  "host": ["{{gatewayUrl}}"],
+                  "path": ["api", "users", "{{userId}}"]
+                },
+                "description": "Tìm user theo UUID nội bộ."
+              }
+            }
+          ]
+        },
+        {
+          "name": "🛒 Order Service",
+          "item": [
+            {
+              "name": "Lấy tất cả Orders",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{gatewayUrl}}/api/orders",
+                  "host": ["{{gatewayUrl}}"],
+                  "path": ["api", "orders"]
+                },
+                "description": "Lấy danh sách toàn bộ orders. Chỉ dành cho admin."
+              }
+            },
+            {
+              "name": "Tìm Order theo ID",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{gatewayUrl}}/api/orders/{{orderId}}",
+                  "host": ["{{gatewayUrl}}"],
+                  "path": ["api", "orders", "{{orderId}}"]
+                },
+                "description": "Tìm order theo UUID."
+              }
+            }
+          ]
+        },
+        {
+          "name": "🔔 Notification Service",
+          "item": [
+            {
+              "name": "Lấy tất cả Notifications",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{gatewayUrl}}/api/notifications",
+                  "host": ["{{gatewayUrl}}"],
+                  "path": ["api", "notifications"]
+                },
+                "description": "Lấy lịch sử toàn bộ notifications đã gửi."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🏥 Health Checks — Tất cả Services",
+      "description": "Kiểm tra nhanh sức khoẻ của tất cả service trong hệ thống.",
+      "item": [
+        {
+          "name": "Gateway Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{gatewayUrl}}/api/health", "host": ["{{gatewayUrl}}"], "path": ["api", "health"] }
+          }
+        },
+        {
+          "name": "User Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{gatewayUrl}}/api/users/health", "host": ["{{gatewayUrl}}"], "path": ["api", "users", "health"] }
+          }
+        },
+        {
+          "name": "Product Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{gatewayUrl}}/api/products/health", "host": ["{{gatewayUrl}}"], "path": ["api", "products", "health"] }
+          }
+        },
+        {
+          "name": "Order Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{gatewayUrl}}/api/orders/health", "host": ["{{gatewayUrl}}"], "path": ["api", "orders", "health"] }
+          }
+        },
+        {
+          "name": "Notification Service Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{gatewayUrl}}/api/notifications/health", "host": ["{{gatewayUrl}}"], "path": ["api", "notifications", "health"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🎬 Demo Flow — Kịch bản hoàn chỉnh",
+      "description": "Chạy tuần tự các request theo thứ tự để demo toàn bộ luồng: Tạo sản phẩm → Xem sản phẩm → Đặt hàng → Xem đơn hàng → Gửi thông báo",
+      "item": [
+        {
+          "name": "1️⃣ Tạo sản phẩm mẫu",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "    if (body.id) {",
+                  "        pm.collectionVariables.set('productId', body.id);",
+                  "        console.log('✅ [Step 1] productId saved:', body.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"MSCloud Demo Product\",\n  \"price\": 199.99,\n  \"description\": \"Sản phẩm demo cho MSCloud system\",\n  \"stock\": 99\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{gatewayUrl}}/api/products",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "products"]
+            }
+          }
+        },
+        {
+          "name": "2️⃣ Xem danh sách sản phẩm",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{gatewayUrl}}/api/products", "host": ["{{gatewayUrl}}"], "path": ["api", "products"] }
+          }
+        },
+        {
+          "name": "3️⃣ Xem thông tin User",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-Id", "value": "{{userId}}" },
+              { "key": "X-User-Email", "value": "{{userEmail}}" }
+            ],
+            "url": { "raw": "{{gatewayUrl}}/api/me", "host": ["{{gatewayUrl}}"], "path": ["api", "me"] }
+          }
+        },
+        {
+          "name": "4️⃣ Đặt đơn hàng",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "    if (body.id) {",
+                  "        pm.collectionVariables.set('orderId', body.id);",
+                  "        console.log('✅ [Step 4] orderId saved:', body.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-User-Id", "value": "{{userId}}" },
+              { "key": "X-User-Email", "value": "{{userEmail}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"quantity\": 2\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{gatewayUrl}}/api/orders", "host": ["{{gatewayUrl}}"], "path": ["api", "orders"] }
+          }
+        },
+        {
+          "name": "5️⃣ Xem đơn hàng của tôi",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-User-Id", "value": "{{userId}}" },
+              { "key": "X-User-Email", "value": "{{userEmail}}" }
+            ],
+            "url": { "raw": "{{gatewayUrl}}/api/orders/my", "host": ["{{gatewayUrl}}"], "path": ["api", "orders", "my"] }
+          }
+        },
+        {
+          "name": "6️⃣ Gửi thông báo xác nhận",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": \"{{userEmail}}\",\n  \"subject\": \"Đặt hàng thành công!\",\n  \"message\": \"Cảm ơn bạn đã đặt hàng trên MSCloud. Đơn hàng của bạn đang được xử lý.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{gatewayUrl}}/api/notifications/test", "host": ["{{gatewayUrl}}"], "path": ["api", "notifications", "test"] }
+          }
+        }
+      ]
     }
   ]
 }

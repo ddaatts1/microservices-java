@@ -17,8 +17,11 @@ import org.springframework.web.client.RestClient;
 
 import java.util.Map;
 
+import org.springframework.web.bind.annotation.CrossOrigin;
+
 @RestController
 @RequestMapping("/api")
+@CrossOrigin(origins = "*")
 public class GatewayController {
     private final RestClient userClient;
     private final RestClient productClient;

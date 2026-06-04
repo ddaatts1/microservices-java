@@ -8,8 +8,8 @@ Sau khi tạo Entra External ID tenant và app/API registration, set GitHub repo
 
 ```text
 AUTH_ENABLED=true
-AUTH_ISSUER_URI=https://<tenant-name>.ciamlogin.com/<tenant-id>/v2.0
-AUTH_AUDIENCE=<api-client-id-hoặc-app-id-uri>
+AUTH_ISSUER_URI=https://mscloudauth.ciamlogin.com/18d1a24d-3c27-4747-813e-f90bba6911cf/v2.0
+AUTH_AUDIENCE=60a64e05-36c6-4622-bb59-a7d84d9ad6f6
 ```
 
 Sau đó chạy GitHub Actions:

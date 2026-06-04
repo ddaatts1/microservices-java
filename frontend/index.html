@@ -427,7 +427,7 @@ const MSAL_CONFIG = {
 };
 
 const GATEWAY_URL = "https://gateway-service.graybay-d4e6295a.southeastasia.azurecontainerapps.io";
-const LOGIN_SCOPES = ["openid", "profile", "email"];
+const LOGIN_SCOPES = ["openid", "profile", "email", MSAL_CONFIG.auth.clientId + "/.default"];
 
 // ==================== MSAL INIT ====================
 let msalInstance = null;

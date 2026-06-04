@@ -151,7 +151,9 @@ function DbEnv([string]$DatabaseName) {
     "SPRING_PROFILES_ACTIVE=prod",
     "SPRING_DATASOURCE_URL=jdbc:postgresql://${postgresHost}:5432/${DatabaseName}?sslmode=require",
     "SPRING_DATASOURCE_USERNAME=$PostgresAdminUser",
-    "SPRING_DATASOURCE_PASSWORD=secretref:db-password"
+    "SPRING_DATASOURCE_PASSWORD=secretref:db-password",
+    "SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=2",
+    "SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE=0"
   )
 }
 

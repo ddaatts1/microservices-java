@@ -42,6 +42,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/user_db
       SPRING_DATASOURCE_USERNAME: mscloud
       SPRING_DATASOURCE_PASSWORD: mscloud
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 2
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
     ports:
       - "8081:8080"
     depends_on:
@@ -56,6 +58,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/product_db
       SPRING_DATASOURCE_USERNAME: mscloud
       SPRING_DATASOURCE_PASSWORD: mscloud
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 2
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
     ports:
       - "8082:8080"
     depends_on:
@@ -72,6 +76,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/order_db
       SPRING_DATASOURCE_USERNAME: mscloud
       SPRING_DATASOURCE_PASSWORD: mscloud
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 2
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
     ports:
       - "8083:8080"
     depends_on:
@@ -90,6 +96,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification_db
       SPRING_DATASOURCE_USERNAME: mscloud
       SPRING_DATASOURCE_PASSWORD: mscloud
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 2
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
     ports:
       - "8084:8080"
     depends_on:

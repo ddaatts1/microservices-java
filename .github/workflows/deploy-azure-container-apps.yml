@@ -11,6 +11,14 @@ on:
       - completed
   workflow_dispatch:
     inputs:
+      deploy_mode:
+        description: Build images or only sync Azure config/secrets and force new revisions.
+        required: true
+        type: choice
+        default: build-and-deploy
+        options:
+          - build-and-deploy
+          - config-only
       image_tag:
         description: Image tag to build and deploy. Leave empty to use commit SHA.
         required: false
@@ -52,9 +60,11 @@ jobs:
         run: |
           $allServices = @("user-service", "product-service", "notification-service", "order-service", "gateway-service")
           $manualService = "${{ github.event.inputs.service }}"
+          $deployMode = "${{ github.event.inputs.deploy_mode }}"
           $manualImageTag = "${{ github.event.inputs.image_tag }}"
           $runSha = "${{ github.event.workflow_run.head_sha || github.sha }}"
           $imageTag = if ([string]::IsNullOrWhiteSpace($manualImageTag)) { $runSha } else { $manualImageTag }
+          $forceRevision = "${{ github.event_name }}" -eq "workflow_dispatch" -and $deployMode -eq "config-only"
 
           if ("${{ github.event_name }}" -eq "workflow_dispatch" -and $manualService -and $manualService -ne "auto") {
             if ($manualService -eq "all") {
@@ -108,8 +118,11 @@ jobs:
           "skip=false" >> $env:GITHUB_OUTPUT
           "services=$servicesArg" >> $env:GITHUB_OUTPUT
           "image_tag=$imageTag" >> $env:GITHUB_OUTPUT
+          "deploy_mode=$deployMode" >> $env:GITHUB_OUTPUT
+          "force_revision=$forceRevision" >> $env:GITHUB_OUTPUT
           Write-Host "Selected services: $servicesArg"
           Write-Host "Image tag: $imageTag"
+          Write-Host "Deploy mode: $deployMode"
 
       - name: Azure login
         if: steps.select-services.outputs.skip != 'true'
@@ -141,7 +154,7 @@ jobs:
           "@ | Set-Content -Path infra/azure/env.ps1 -Encoding UTF8
 
       - name: Build and push service images
-        if: steps.select-services.outputs.skip != 'true'
+        if: steps.select-services.outputs.skip != 'true' && steps.select-services.outputs.deploy_mode != 'config-only'
         shell: pwsh
         run: |
           $services = "${{ steps.select-services.outputs.services }}".Split(",", [System.StringSplitOptions]::RemoveEmptyEntries)
@@ -152,4 +165,5 @@ jobs:
         shell: pwsh
         run: |
           $services = "${{ steps.select-services.outputs.services }}".Split(",", [System.StringSplitOptions]::RemoveEmptyEntries)
-          ./infra/azure/deploy-container-apps.ps1 -ServicesToDeploy $services
+          $revisionToken = if ("${{ steps.select-services.outputs.force_revision }}" -eq "True") { "${{ github.run_id }}-${{ github.run_attempt }}" } else { "" }
+          ./infra/azure/deploy-container-apps.ps1 -ServicesToDeploy $services -RevisionToken $revisionToken

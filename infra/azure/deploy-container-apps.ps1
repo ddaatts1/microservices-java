@@ -1,5 +1,6 @@
 param(
-  [string[]]$ServicesToDeploy = @()
+  [string[]]$ServicesToDeploy = @(),
+  [string]$RevisionToken = ""
 )
 
 . (Join-Path $PSScriptRoot "common.ps1")
@@ -69,6 +70,11 @@ function Upsert-ContainerApp {
     [int]$MaxReplicas = 3
   )
 
+  $effectiveEnvVars = $EnvVars
+  if (-not [string]::IsNullOrWhiteSpace($RevisionToken)) {
+    $effectiveEnvVars = $effectiveEnvVars + @("DEPLOY_REVISION_TOKEN=$RevisionToken")
+  }
+
   if (Test-ContainerAppExists $Name) {
     Write-Host "Updating Container App: $Name"
     if ($Secrets.Count -gt 0) {
@@ -90,7 +96,7 @@ function Upsert-ContainerApp {
       --name $Name `
       --resource-group $ResourceGroup `
       --image $Image `
-      --replace-env-vars $EnvVars `
+      --replace-env-vars $effectiveEnvVars `
       --cpu $Cpu `
       --memory $Memory `
       --min-replicas $MinReplicas `
@@ -124,7 +130,7 @@ function Upsert-ContainerApp {
     --user-assigned $identityId `
     --registry-identity $identityId `
     --registry-server $loginServer `
-    --env-vars $EnvVars `
+    --env-vars $effectiveEnvVars `
     @secretArgs `
     --cpu $Cpu `
     --memory $Memory `

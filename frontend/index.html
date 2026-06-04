@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MSCloud — Đăng nhập</title>
+  <meta name="description" content="Hệ thống MSCloud Microservices — Đăng ký và đăng nhập qua Microsoft Entra External ID" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3/dist/msal-browser.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: hsl(230, 85%, 60%);
+      --primary-light: hsl(230, 85%, 70%);
+      --primary-dark: hsl(230, 85%, 50%);
+      --accent: hsl(270, 80%, 65%);
+      --success: hsl(150, 70%, 45%);
+      --danger: hsl(0, 75%, 60%);
+      --warning: hsl(38, 90%, 55%);
+      --bg: hsl(225, 25%, 8%);
+      --bg2: hsl(225, 20%, 12%);
+      --bg3: hsl(225, 18%, 16%);
+      --glass: rgba(255,255,255,0.05);
+      --glass-border: rgba(255,255,255,0.08);
+      --text: hsl(220, 20%, 95%);
+      --text-muted: hsl(220, 10%, 55%);
+      --radius: 16px;
+      --radius-sm: 10px;
+      --shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Background animated blobs */
+    .bg-blobs {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+    }
+    .blob {
+      position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.15;
+      animation: blobFloat 8s ease-in-out infinite;
+    }
+    .blob1 { width: 600px; height: 600px; background: var(--primary); top: -200px; left: -200px; animation-delay: 0s; }
+    .blob2 { width: 500px; height: 500px; background: var(--accent); bottom: -150px; right: -150px; animation-delay: 3s; }
+    .blob3 { width: 400px; height: 400px; background: hsl(200, 80%, 50%); top: 40%; left: 40%; animation-delay: 5s; }
+    @keyframes blobFloat {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(30px, -30px) scale(1.05); }
+    }
+
+    /* Layout */
+    #app { position: relative; z-index: 1; }
+
+    /* NAVBAR */
+    nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 32px;
+      background: rgba(0,0,0,0.3);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--glass-border);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 12px;
+      font-size: 20px; font-weight: 800;
+      background: linear-gradient(135deg, var(--primary-light), var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .nav-logo-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; -webkit-text-fill-color: white;
+    }
+    .nav-actions { display: flex; align-items: center; gap: 12px; }
+
+    /* BUTTONS */
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 20px; border-radius: var(--radius-sm);
+      font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;
+      cursor: pointer; border: none; transition: all 0.2s ease; text-decoration: none;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: white;
+      box-shadow: 0 4px 20px rgba(99,102,241,0.4);
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(99,102,241,0.6); }
+    .btn-outline {
+      background: transparent; color: var(--text);
+      border: 1px solid var(--glass-border);
+    }
+    .btn-outline:hover { background: var(--glass); border-color: var(--primary); color: var(--primary-light); }
+    .btn-ghost { background: transparent; color: var(--text-muted); }
+    .btn-ghost:hover { color: var(--text); background: var(--glass); }
+    .btn-danger { background: linear-gradient(135deg, hsl(0,75%,50%), hsl(0,75%,40%)); color: white; }
+    .btn-sm { padding: 6px 14px; font-size: 13px; border-radius: 8px; }
+    .btn-lg { padding: 14px 32px; font-size: 16px; border-radius: 14px; }
+
+    /* HERO */
+    #page-landing {
+      min-height: calc(100vh - 69px);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 60px 24px;
+    }
+    .badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 16px; border-radius: 999px;
+      background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3);
+      font-size: 13px; font-weight: 500; color: var(--primary-light);
+      margin-bottom: 24px;
+    }
+    .badge-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    .hero-title {
+      font-size: clamp(40px, 6vw, 72px); font-weight: 800; line-height: 1.1;
+      background: linear-gradient(135deg, var(--text) 0%, var(--primary-light) 50%, var(--accent) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      margin-bottom: 20px;
+    }
+    .hero-sub {
+      font-size: 18px; color: var(--text-muted); max-width: 560px; line-height: 1.7; margin-bottom: 40px;
+    }
+    .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+    .features {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+      margin-top: 72px; max-width: 720px; width: 100%;
+    }
+    @media (max-width: 640px) { .features { grid-template-columns: 1fr; } }
+    .feature-card {
+      background: var(--glass); border: 1px solid var(--glass-border);
+      border-radius: var(--radius); padding: 24px;
+      text-align: left; transition: all 0.3s ease;
+    }
+    .feature-card:hover { background: rgba(255,255,255,0.08); transform: translateY(-4px); }
+    .feature-icon { font-size: 28px; margin-bottom: 12px; }
+    .feature-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+    .feature-desc { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+
+    /* DASHBOARD */
+    #page-dashboard { display: none; padding: 32px; max-width: 1100px; margin: 0 auto; }
+
+    .user-card {
+      background: var(--glass); border: 1px solid var(--glass-border);
+      border-radius: var(--radius); padding: 28px;
+      display: flex; align-items: center; gap: 24px; margin-bottom: 32px;
+    }
+    .avatar {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; font-weight: 700; color: white; flex-shrink: 0;
+    }
+    .user-info h2 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+    .user-info p { color: var(--text-muted); font-size: 14px; }
+    .user-meta {
+      margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+    }
+    .tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600;
+    }
+    .tag-success { background: rgba(74,222,128,0.15); color: hsl(150,70%,55%); }
+    .tag-info { background: rgba(99,102,241,0.15); color: var(--primary-light); }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 4px; margin-bottom: 24px; background: var(--bg2); border-radius: 12px; padding: 4px; }
+    .tab {
+      flex: 1; padding: 10px 16px; border-radius: 9px; border: none;
+      background: transparent; color: var(--text-muted); cursor: pointer;
+      font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500;
+      transition: all 0.2s ease; text-align: center;
+    }
+    .tab.active { background: var(--bg3); color: var(--text); }
+
+    /* Cards grid */
+    .grid { display: grid; gap: 16px; }
+    .grid-2 { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+    .grid-1 { grid-template-columns: 1fr; }
+
+    .card {
+      background: var(--bg2); border: 1px solid var(--glass-border);
+      border-radius: var(--radius); padding: 20px;
+      transition: all 0.2s ease;
+    }
+    .card:hover { border-color: rgba(99,102,241,0.3); background: var(--bg3); }
+    .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+    .card-name { font-weight: 600; font-size: 16px; }
+    .card-price { font-size: 20px; font-weight: 700; color: var(--primary-light); }
+    .card-desc { font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px; }
+    .card-footer { display: flex; justify-content: space-between; align-items: center; }
+    .stock { font-size: 12px; color: var(--text-muted); }
+    .stock span { color: var(--success); font-weight: 600; }
+
+    /* Order card */
+    .order-card {
+      background: var(--bg2); border: 1px solid var(--glass-border);
+      border-radius: var(--radius); padding: 20px; margin-bottom: 12px;
+    }
+    .order-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .order-id { font-size: 12px; color: var(--text-muted); font-family: monospace; }
+    .order-status {
+      padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+    }
+    .status-CREATED { background: rgba(251,191,36,0.15); color: hsl(38,90%,65%); }
+    .status-PAID { background: rgba(74,222,128,0.15); color: hsl(150,70%,55%); }
+    .status-CANCELLED { background: rgba(239,68,68,0.15); color: hsl(0,75%,65%); }
+    .order-product { font-weight: 600; margin-bottom: 4px; }
+    .order-meta { font-size: 13px; color: var(--text-muted); }
+    .order-total { font-size: 18px; font-weight: 700; color: var(--primary-light); text-align: right; margin-top: 8px; }
+
+    /* Token section */
+    .token-box {
+      background: var(--bg); border: 1px solid var(--glass-border);
+      border-radius: var(--radius-sm); padding: 16px;
+      font-family: monospace; font-size: 12px; color: var(--text-muted);
+      word-break: break-all; line-height: 1.7; margin-top: 12px;
+      max-height: 120px; overflow-y: auto;
+    }
+    .token-claims {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px; margin-top: 16px;
+    }
+    .claim {
+      background: var(--bg3); border-radius: var(--radius-sm);
+      padding: 12px 16px;
+    }
+    .claim-key { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .claim-value { font-size: 14px; font-weight: 500; word-break: break-word; }
+
+    /* Loading */
+    .loading {
+      display: flex; align-items: center; gap: 12px;
+      color: var(--text-muted); font-size: 14px; padding: 40px 0;
+      justify-content: center;
+    }
+    .spinner {
+      width: 20px; height: 20px; border-radius: 50%;
+      border: 2px solid var(--glass-border); border-top-color: var(--primary);
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Empty state */
+    .empty {
+      text-align: center; padding: 60px 20px; color: var(--text-muted);
+    }
+    .empty-icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+
+    /* Toast */
+    #toast-container {
+      position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .toast {
+      padding: 14px 20px; border-radius: var(--radius-sm);
+      font-size: 14px; font-weight: 500; max-width: 340px;
+      display: flex; align-items: center; gap: 10px;
+      backdrop-filter: blur(20px); animation: slideIn 0.3s ease;
+    }
+    @keyframes slideIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .toast-success { background: rgba(74,222,128,0.2); border: 1px solid rgba(74,222,128,0.3); color: hsl(150,70%,75%); }
+    .toast-error { background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.3); color: hsl(0,75%,75%); }
+    .toast-info { background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.3); color: var(--primary-light); }
+
+    /* Section title */
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .section-title { font-size: 18px; font-weight: 700; }
+
+    /* Divider */
+    .divider { height: 1px; background: var(--glass-border); margin: 24px 0; }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<div class="bg-blobs">
+  <div class="blob blob1"></div>
+  <div class="blob blob2"></div>
+  <div class="blob blob3"></div>
+</div>
+
+<div id="app">
+  <!-- NAVBAR -->
+  <nav>
+    <div class="nav-logo">
+      <div class="nav-logo-icon">☁</div>
+      MSCloud
+    </div>
+    <div class="nav-actions" id="nav-actions">
+      <div class="loading" style="padding: 0;">
+        <div class="spinner"></div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- LANDING PAGE -->
+  <div id="page-landing">
+    <div class="badge">
+      <span class="badge-dot"></span>
+      Chạy trên Azure Container Apps
+    </div>
+    <h1 class="hero-title">MSCloud<br/>Microservices</h1>
+    <p class="hero-sub">
+      Hệ thống thương mại điện tử hiện đại, bảo mật bằng Microsoft Entra External ID.
+      Đăng ký tài khoản miễn phí và trải nghiệm ngay.
+    </p>
+    <div class="hero-actions">
+      <button class="btn btn-primary btn-lg" onclick="signUp()">
+        ✨ Đăng ký miễn phí
+      </button>
+      <button class="btn btn-outline btn-lg" onclick="signIn()">
+        🔑 Đăng nhập
+      </button>
+    </div>
+
+    <div class="features">
+      <div class="feature-card">
+        <div class="feature-icon">🛡️</div>
+        <div class="feature-title">Bảo mật chuẩn doanh nghiệp</div>
+        <div class="feature-desc">Xác thực qua Microsoft Entra External ID với JWT token</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-title">Kiến trúc Microservices</div>
+        <div class="feature-desc">5 service độc lập, tự động scale trên Azure</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🌏</div>
+        <div class="feature-title">Triển khai trên Azure</div>
+        <div class="feature-desc">Container Apps tại Southeast Asia, sẵn sàng 24/7</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="page-dashboard">
+    <!-- User info card -->
+    <div class="user-card" id="user-card">
+      <div class="avatar" id="user-avatar">?</div>
+      <div class="user-info">
+        <h2 id="user-name">...</h2>
+        <p id="user-email-display">...</p>
+      </div>
+      <div class="user-meta">
+        <span class="tag tag-success">✅ Đã xác thực</span>
+        <span class="tag tag-info" id="token-expiry">...</span>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('products', this)">📦 Sản phẩm</button>
+      <button class="tab" onclick="switchTab('orders', this)">🛒 Đơn hàng</button>
+      <button class="tab" onclick="switchTab('token', this)">🔐 JWT Token</button>
+    </div>
+
+    <!-- Tab: Products -->
+    <div id="tab-products">
+      <div class="section-header">
+        <span class="section-title">Danh sách sản phẩm</span>
+        <button class="btn btn-outline btn-sm" onclick="loadProducts()">🔄 Làm mới</button>
+      </div>
+      <div id="products-container" class="grid grid-2">
+        <div class="loading"><div class="spinner"></div> Đang tải sản phẩm...</div>
+      </div>
+    </div>
+
+    <!-- Tab: Orders -->
+    <div id="tab-orders" class="hidden">
+      <div class="section-header">
+        <span class="section-title">Đơn hàng của tôi</span>
+        <button class="btn btn-outline btn-sm" onclick="loadOrders()">🔄 Làm mới</button>
+      </div>
+      <div id="orders-container">
+        <div class="loading"><div class="spinner"></div> Đang tải đơn hàng...</div>
+      </div>
+    </div>
+
+    <!-- Tab: Token -->
+    <div id="tab-token" class="hidden">
+      <div class="section-title" style="margin-bottom: 16px;">🔐 Thông tin JWT Token</div>
+      <div id="token-claims-container">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+      <div class="divider"></div>
+      <div class="section-title" style="margin-bottom: 8px; font-size: 14px; color: var(--text-muted);">Raw Access Token</div>
+      <div class="token-box" id="raw-token-box">...</div>
+      <div style="margin-top: 12px;">
+        <button class="btn btn-outline btn-sm" onclick="copyToken()">📋 Copy Token</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast-container"></div>
+
+<script>
+// ==================== CONFIG ====================
+const MSAL_CONFIG = {
+  auth: {
+    clientId: "60a64e05-36c6-4622-bb59-a7d84d9ad6f6",
+    authority: "https://mscloudauth.ciamlogin.com/18d1a24d-3c27-4747-813e-f90bba6911cf/",
+    redirectUri: window.location.origin + window.location.pathname,
+    postLogoutRedirectUri: window.location.origin + window.location.pathname,
+    knownAuthorities: ["mscloudauth.ciamlogin.com"],
+  },
+  cache: {
+    cacheLocation: "localStorage",
+    storeAuthStateInCookie: false,
+  },
+};
+
+const GATEWAY_URL = "https://gateway-service.graybay-d4e6295a.southeastasia.azurecontainerapps.io";
+const LOGIN_SCOPES = ["openid", "profile", "email"];
+
+// ==================== MSAL INIT ====================
+let msalInstance = null;
+let currentAccount = null;
+let accessToken = null;
+
+async function initMsal() {
+  try {
+    msalInstance = new msal.PublicClientApplication(MSAL_CONFIG);
+    await msalInstance.initialize();
+
+    // Handle redirect result (quay về từ login page)
+    const result = await msalInstance.handleRedirectPromise();
+    if (result) {
+      currentAccount = result.account;
+      accessToken = result.accessToken;
+      toast("✅ Đăng nhập thành công!", "success");
+    }
+
+    const accounts = msalInstance.getAllAccounts();
+    if (accounts.length > 0) {
+      currentAccount = accounts[0];
+    }
+
+    renderNav();
+    if (currentAccount) {
+      await loadDashboard();
+    }
+  } catch (err) {
+    console.error("MSAL init error:", err);
+    renderNav();
+    toast("❌ Lỗi khởi tạo auth: " + err.message, "error");
+  }
+}
+
+// ==================== AUTH ACTIONS ====================
+async function signIn() {
+  try {
+    await msalInstance.loginRedirect({
+      scopes: LOGIN_SCOPES,
+    });
+  } catch (err) {
+    toast("❌ " + err.message, "error");
+  }
+}
+
+async function signUp() {
+  try {
+    // Entra External ID hỗ trợ signup qua query param
+    await msalInstance.loginRedirect({
+      scopes: LOGIN_SCOPES,
+      prompt: "create", // Mở trang đăng ký thay vì đăng nhập
+    });
+  } catch (err) {
+    toast("❌ " + err.message, "error");
+  }
+}
+
+async function signOut() {
+  try {
+    await msalInstance.logoutRedirect({
+      account: currentAccount,
+    });
+  } catch (err) {
+    toast("❌ " + err.message, "error");
+  }
+}
+
+async function getToken() {
+  if (!currentAccount) return null;
+  try {
+    const result = await msalInstance.acquireTokenSilent({
+      scopes: LOGIN_SCOPES,
+      account: currentAccount,
+    });
+    accessToken = result.accessToken;
+    return accessToken;
+  } catch (err) {
+    // Token hết hạn → lấy mới
+    if (err instanceof msal.InteractionRequiredAuthError) {
+      await msalInstance.acquireTokenRedirect({
+        scopes: LOGIN_SCOPES,
+        account: currentAccount,
+      });
+    }
+    return null;
+  }
+}
+
+// ==================== RENDER ====================
+function renderNav() {
+  const nav = document.getElementById("nav-actions");
+  if (currentAccount) {
+    const initials = (currentAccount.name || currentAccount.username || "U")
+      .split(" ").map(w => w[0]).join("").substring(0, 2).toUpperCase();
+    nav.innerHTML = `
+      <div style="display:flex; align-items:center; gap:8px;">
+        <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;">${initials}</div>
+        <span style="font-size:14px;color:var(--text-muted);">${currentAccount.username}</span>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="signOut()">🚪 Đăng xuất</button>
+    `;
+  } else {
+    nav.innerHTML = `
+      <button class="btn btn-outline btn-sm" onclick="signIn()">Đăng nhập</button>
+      <button class="btn btn-primary btn-sm" onclick="signUp()">Đăng ký</button>
+    `;
+  }
+}
+
+async function loadDashboard() {
+  document.getElementById("page-landing").style.display = "none";
+  document.getElementById("page-dashboard").style.display = "block";
+
+  const account = currentAccount;
+  const name = account.name || account.username;
+  const initials = name.split(" ").map(w => w[0]).join("").substring(0, 2).toUpperCase();
+
+  document.getElementById("user-avatar").textContent = initials;
+  document.getElementById("user-name").textContent = name;
+  document.getElementById("user-email-display").textContent = account.username;
+
+  // Lấy token và hiện thông tin expiry
+  const token = await getToken();
+  if (token) {
+    try {
+      const parts = token.split(".");
+      const payload = JSON.parse(atob(parts[1]));
+      const exp = new Date(payload.exp * 1000);
+      const remaining = Math.round((exp - new Date()) / 60000);
+      document.getElementById("token-expiry").textContent = `⏰ Hết hạn sau ${remaining} phút`;
+      renderTokenClaims(payload, token);
+    } catch(e) {}
+  }
+
+  loadProducts();
+}
+
+// ==================== API CALLS ====================
+async function apiFetch(path, options = {}) {
+  const token = await getToken();
+  const headers = {
+    "Content-Type": "application/json",
+    ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+    ...options.headers,
+  };
+  const resp = await fetch(GATEWAY_URL + path, { ...options, headers });
+  if (!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
+  return resp.json();
+}
+
+async function loadProducts() {
+  const container = document.getElementById("products-container");
+  container.innerHTML = `<div class="loading"><div class="spinner"></div> Đang tải...</div>`;
+  try {
+    const products = await apiFetch("/api/products");
+    if (!products || products.length === 0) {
+      container.innerHTML = `<div class="empty"><div class="empty-icon">📦</div><div class="empty-title">Chưa có sản phẩm nào</div></div>`;
+      return;
+    }
+    container.innerHTML = products.map(p => `
+      <div class="card">
+        <div class="card-top">
+          <div class="card-name">${p.name}</div>
+          <div class="card-price">$${p.price}</div>
+        </div>
+        <div class="card-desc">${p.description || "Không có mô tả"}</div>
+        <div class="card-footer">
+          <div class="stock">Kho: <span>${p.stock}</span> sản phẩm</div>
+          <button class="btn btn-primary btn-sm" onclick="createOrder('${p.id}', '${p.name}')">
+            🛒 Đặt hàng
+          </button>
+        </div>
+      </div>
+    `).join("");
+  } catch(err) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Không tải được sản phẩm</div><div>${err.message}</div></div>`;
+    toast("❌ Lỗi tải sản phẩm: " + err.message, "error");
+  }
+}
+
+async function loadOrders() {
+  const container = document.getElementById("orders-container");
+  container.innerHTML = `<div class="loading"><div class="spinner"></div> Đang tải...</div>`;
+  try {
+    const orders = await apiFetch("/api/orders/my");
+    if (!orders || orders.length === 0) {
+      container.innerHTML = `<div class="empty"><div class="empty-icon">🛒</div><div class="empty-title">Chưa có đơn hàng nào</div><p style="color:var(--text-muted);font-size:13px;">Hãy đặt hàng từ tab Sản phẩm!</p></div>`;
+      return;
+    }
+    container.innerHTML = orders.map(o => `
+      <div class="order-card">
+        <div class="order-header">
+          <div class="order-id">🆔 ${o.id}</div>
+          <div class="order-status status-${o.status}">${o.status}</div>
+        </div>
+        <div class="order-product">${o.productName}</div>
+        <div class="order-meta">Số lượng: ${o.quantity} × $${o.unitPrice}</div>
+        <div class="order-total">$${o.totalAmount}</div>
+      </div>
+    `).join("");
+  } catch(err) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Không tải được đơn hàng</div><div>${err.message}</div></div>`;
+    toast("❌ Lỗi: " + err.message, "error");
+  }
+}
+
+async function createOrder(productId, productName) {
+  try {
+    toast(`⏳ Đang đặt "${productName}"...`, "info");
+    const order = await apiFetch("/api/orders", {
+      method: "POST",
+      body: JSON.stringify({ productId, quantity: 1 }),
+    });
+    toast(`✅ Đặt hàng thành công! #${order.id.substring(0,8)}`, "success");
+    switchTab("orders", document.querySelectorAll(".tab")[1]);
+    loadOrders();
+  } catch(err) {
+    toast("❌ Đặt hàng thất bại: " + err.message, "error");
+  }
+}
+
+// ==================== TOKEN INFO ====================
+function renderTokenClaims(payload, rawToken) {
+  const container = document.getElementById("token-claims-container");
+  const interesting = {
+    "sub": "Subject (User ID)",
+    "email": "Email",
+    "preferred_username": "Username",
+    "name": "Tên đầy đủ",
+    "iss": "Issuer (Nhà phát hành)",
+    "aud": "Audience (Ứng dụng)",
+    "iat": "Issued At (Cấp lúc)",
+    "exp": "Expires At (Hết hạn)",
+    "tid": "Tenant ID",
+  };
+  const claimsHtml = Object.entries(interesting)
+    .filter(([k]) => payload[k])
+    .map(([k, label]) => {
+      let val = payload[k];
+      if (k === "iat" || k === "exp") val = new Date(val * 1000).toLocaleString("vi-VN");
+      if (Array.isArray(val)) val = val.join(", ");
+      return `<div class="claim"><div class="claim-key">${label}</div><div class="claim-value">${val}</div></div>`;
+    }).join("");
+  container.innerHTML = `<div class="token-claims">${claimsHtml}</div>`;
+  document.getElementById("raw-token-box").textContent = rawToken;
+}
+
+function copyToken() {
+  const token = document.getElementById("raw-token-box").textContent;
+  navigator.clipboard.writeText(token).then(() => toast("📋 Đã copy token!", "success"));
+}
+
+// ==================== UI HELPERS ====================
+function switchTab(name, btn) {
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  btn.classList.add("active");
+  ["products","orders","token"].forEach(t => {
+    document.getElementById(`tab-${t}`).classList.toggle("hidden", t !== name);
+  });
+  if (name === "orders") loadOrders();
+}
+
+function toast(msg, type = "info") {
+  const container = document.getElementById("toast-container");
+  const el = document.createElement("div");
+  el.className = `toast toast-${type}`;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// ==================== BOOT ====================
+initMsal();
+</script>
+</body>
+</html>

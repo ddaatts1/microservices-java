@@ -709,7 +709,7 @@ async function sendTestNotification() {
     toast(`⏳ Đang gửi thông báo...`, "info");
     const res = await apiFetch("/api/notifications/test", {
       method: "POST",
-      body: JSON.stringify({ message: "Hello từ Frontend SPA!", userEmail: currentAccount.username }),
+      body: JSON.stringify({ to: currentAccount.username, subject: "Test từ MSCloud", message: "Hello từ Frontend SPA!" }),
     });
     toast(`✅ Gửi thành công: ${res.message || "OK"}`, "success");
   } catch(err) {

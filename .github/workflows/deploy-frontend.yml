@@ -27,3 +27,4 @@ jobs:
           app_location: "/frontend" 
           api_location: ""
           output_location: "" 
+          skip_app_build: true

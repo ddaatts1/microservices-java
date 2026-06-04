@@ -366,6 +366,7 @@
     <div class="tabs">
       <button class="tab active" onclick="switchTab('products', this)">📦 Sản phẩm</button>
       <button class="tab" onclick="switchTab('orders', this)">🛒 Đơn hàng</button>
+      <button class="tab" onclick="switchTab('profile', this)">👤 Hồ sơ</button>
       <button class="tab" onclick="switchTab('token', this)">🔐 JWT Token</button>
     </div>
 
@@ -388,6 +389,29 @@
       </div>
       <div id="orders-container">
         <div class="loading"><div class="spinner"></div> Đang tải đơn hàng...</div>
+      </div>
+    </div>
+
+    <!-- Tab: Profile -->
+    <div id="tab-profile" class="hidden">
+      <div class="section-header">
+        <span class="section-title">Hồ sơ từ Database (User Service)</span>
+        <button class="btn btn-outline btn-sm" onclick="loadProfile()">🔄 Làm mới</button>
+      </div>
+      <div id="profile-container">
+        <div class="loading"><div class="spinner"></div> Đang đồng bộ...</div>
+      </div>
+      
+      <div class="divider"></div>
+      
+      <div class="section-header">
+        <span class="section-title">Thông báo (Notification Service)</span>
+      </div>
+      <div class="card">
+        <p style="color:var(--text-muted);font-size:14px;margin-bottom:12px;">
+          Gửi thử 1 thông báo. Gateway sẽ chuyển cho Notification Service (tương lai có thể dùng RabbitMQ).
+        </p>
+        <button class="btn btn-primary" onclick="sendTestNotification()">🔔 Bắn thông báo Test</button>
       </div>
     </div>
 
@@ -571,6 +595,7 @@ async function loadDashboard() {
   }
 
   loadProducts();
+  loadProfile();
 }
 
 // ==================== API CALLS ====================
@@ -657,6 +682,41 @@ async function createOrder(productId, productName) {
   }
 }
 
+async function loadProfile() {
+  const container = document.getElementById("profile-container");
+  try {
+    const profile = await apiFetch("/api/me");
+    const date = new Date(profile.createdAt).toLocaleString("vi-VN");
+    container.innerHTML = `
+      <div class="card">
+        <div class="card-name" style="font-size:18px;margin-bottom:12px;">ID Hệ thống: <span style="color:var(--primary-light);font-family:monospace;font-size:14px">${profile.id}</span></div>
+        <div style="display:grid;gap:8px;font-size:14px;color:var(--text-muted)">
+          <div><strong>External ID:</strong> ${profile.externalUserId}</div>
+          <div><strong>Email:</strong> ${profile.email}</div>
+          <div><strong>Trạng thái:</strong> <span class="tag tag-success">${profile.status}</span></div>
+          <div><strong>Role:</strong> ${profile.role}</div>
+          <div><strong>Tạo lúc:</strong> ${date}</div>
+        </div>
+      </div>
+    `;
+  } catch(err) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Lỗi lấy hồ sơ</div><div>${err.message}</div></div>`;
+  }
+}
+
+async function sendTestNotification() {
+  try {
+    toast(`⏳ Đang gửi thông báo...`, "info");
+    const res = await apiFetch("/api/notifications/test", {
+      method: "POST",
+      body: JSON.stringify({ message: "Hello từ Frontend SPA!", userEmail: currentAccount.username }),
+    });
+    toast(`✅ Gửi thành công: ${res.message || "OK"}`, "success");
+  } catch(err) {
+    toast("❌ Lỗi gửi thông báo: " + err.message, "error");
+  }
+}
+
 // ==================== TOKEN INFO ====================
 function renderTokenClaims(payload, rawToken) {
   const container = document.getElementById("token-claims-container");
@@ -692,10 +752,11 @@ function copyToken() {
 function switchTab(name, btn) {
   document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
   btn.classList.add("active");
-  ["products","orders","token"].forEach(t => {
+  ["products","orders","profile","token"].forEach(t => {
     document.getElementById(`tab-${t}`).classList.toggle("hidden", t !== name);
   });
   if (name === "orders") loadOrders();
+  if (name === "profile") loadProfile();
 }
 
 function toast(msg, type = "info") {

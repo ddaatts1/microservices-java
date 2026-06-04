@@ -25,6 +25,7 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, AuthProperties authProperties) throws Exception {
         http.csrf(csrf -> csrf.disable());
+        http.cors(Customizer.withDefaults()); // Cho phép preflight OPTIONS đi qua Spring Security
 
         if (!authProperties.enabled()) {
             return http

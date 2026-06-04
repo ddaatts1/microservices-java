@@ -5,10 +5,35 @@
     "description": "Bộ collection đầy đủ cho hệ thống MSCloud Microservices trên Azure Container Apps.\n\n## Cách dùng\n1. Import file này vào Postman\n2. Chọn Environment \"MSCloud - Azure\" đã import kèm\n3. Các request qua **Gateway** là luồng chính (production)\n4. Các request **Direct Service** dùng để debug nội bộ\n\n## Auth\n- Nếu AUTH_ENABLED=true: thêm Bearer JWT token vào header Authorization\n- Nếu AUTH_ENABLED=false: hệ thống dùng X-User-Id / X-User-Email header (dev mode)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{bearerToken}}",
+        "type": "string"
+      }
+    ]
+  },
   "variable": [
     {
       "key": "gatewayUrl",
       "value": "https://gateway-service.graybay-d4e6295a.southeastasia.azurecontainerapps.io",
+      "type": "string"
+    },
+    {
+      "key": "tenantId",
+      "value": "18d1a24d-3c27-4747-813e-f90bba6911cf",
+      "type": "string"
+    },
+    {
+      "key": "clientId",
+      "value": "60a64e05-36c6-4622-bb59-a7d84d9ad6f6",
+      "type": "string"
+    },
+    {
+      "key": "entraBaseUrl",
+      "value": "https://mscloudauth.ciamlogin.com/18d1a24d-3c27-4747-813e-f90bba6911cf",
       "type": "string"
     },
     {
@@ -39,6 +64,204 @@
     }
   ],
   "item": [
+    {
+      "name": "🔐 Authentication — Entra External ID",
+      "description": "Lấy JWT Access Token từ Microsoft Entra External ID.\n\n**Cách dùng nhanh:**\n1. Chạy request **Login (ROPC)** → token tự lưu vào `bearerToken`\n2. Các request khác tự dùng token đó qua header Authorization\n\n**Nếu ROPC bị tắt:** Dùng Postman OAuth2 (xem request Hướng dẫn bên dưới)",
+      "item": [
+        {
+          "name": "📋 Hướng dẫn — OAuth2 Authorization Code (PKCE)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://mscloudauth.ciamlogin.com/18d1a24d-3c27-4747-813e-f90bba6911cf/oauth2/v2.0/authorize",
+              "host": ["mscloudauth.ciamlogin.com"],
+              "path": ["18d1a24d-3c27-4747-813e-f90bba6911cf", "oauth2", "v2.0", "authorize"]
+            },
+            "description": "# Cách lấy token qua Postman OAuth2 UI\n\n**Bước 1 — Thêm Redirect URI vào Azure:**\n- Vào Azure Portal → App Registration `mscloud-gateway`\n- Chọn **Authentication** → **Add a platform** → **Mobile and desktop**\n- Thêm URI: `https://oauth.pstmn.io/v1/callback`\n- Bấm **Save**\n\n**Bước 2 — Cấu hình trong Postman:**\n- Mở tab **Authorization** của collection này\n- Type: `OAuth 2.0`\n- Grant Type: `Authorization Code (With PKCE)`\n- Auth URL: `https://mscloudauth.ciamlogin.com/18d1a24d-3c27-4747-813e-f90bba6911cf/oauth2/v2.0/authorize`\n- Token URL: `https://mscloudauth.ciamlogin.com/18d1a24d-3c27-4747-813e-f90bba6911cf/oauth2/v2.0/token`\n- Client ID: `60a64e05-36c6-4622-bb59-a7d84d9ad6f6`\n- Scope: `openid profile email`\n- Code Challenge Method: `SHA-256`\n\n**Bước 3:** Bấm **Get New Access Token** → Postman mở trình duyệt → Đăng nhập → Token tự về\n\n> ✅ Đây là cách bảo mật nhất, được khuyến nghị cho production."
+          }
+        },
+        {
+          "name": "🔑 Login — Lấy Token (ROPC)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const resp = pm.response.json();",
+                  "if (resp.access_token) {",
+                  "    pm.collectionVariables.set('bearerToken', resp.access_token);",
+                  "    if (resp.refresh_token) pm.collectionVariables.set('refreshToken', resp.refresh_token);",
+                  "    console.log('✅ Token saved! Expires in:', resp.expires_in, 'seconds');",
+                  "",
+                  "    // Tự decode JWT lấy user info",
+                  "    try {",
+                  "        const parts = resp.access_token.split('.');",
+                  "        const payload = JSON.parse(atob(parts[1]));",
+                  "        if (payload.email) pm.collectionVariables.set('userEmail', payload.email);",
+                  "        if (payload.preferred_username) pm.collectionVariables.set('userEmail', payload.preferred_username);",
+                  "        if (payload.sub) pm.collectionVariables.set('userId', payload.sub);",
+                  "        console.log('👤 Logged in as:', payload.email || payload.preferred_username);",
+                  "        console.log('🆔 Subject:', payload.sub);",
+                  "        const exp = new Date(payload.exp * 1000);",
+                  "        console.log('⏰ Token expires:', exp.toLocaleString());",
+                  "    } catch(e) {",
+                  "        console.log('ℹ️ Could not decode JWT payload');",
+                  "    }",
+                  "} else {",
+                  "    console.error('❌ Login failed:', resp.error_description || resp.error);",
+                  "    if (resp.error === 'unsupported_grant_type') {",
+                  "        console.log('💡 ROPC bị tắt → Dùng Postman OAuth2 (Authorization Code) thay thế');",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "grant_type", "value": "password" },
+                { "key": "client_id", "value": "{{clientId}}" },
+                { "key": "scope", "value": "openid profile email" },
+                {
+                  "key": "username",
+                  "value": "your-email@example.com",
+                  "description": "⚠️ Thay bằng email đã đăng ký trong Entra External ID"
+                },
+                {
+                  "key": "password",
+                  "value": "your-password",
+                  "description": "⚠️ Thay bằng mật khẩu thực tế"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{entraBaseUrl}}/oauth2/v2.0/token",
+              "host": ["{{entraBaseUrl}}"],
+              "path": ["oauth2", "v2.0", "token"]
+            },
+            "description": "# Login bằng Username + Password (ROPC Flow)\n\n**Cách dùng:**\n1. Sửa `username` = email đã đăng ký trong Entra External ID\n2. Sửa `password` = mật khẩu của user\n3. Bấm **Send**\n4. Script test sẽ tự động:\n   - Lưu `bearerToken` → tất cả request khác dùng luôn\n   - Lưu `userId` và `userEmail` từ JWT payload\n5. Kiểm tra **Postman Console** (Ctrl+Alt+C) để xem thông tin token\n\n**Nếu bị lỗi `unsupported_grant_type`:** Tenant chưa bật ROPC → Dùng cách Authorization Code (PKCE) trong request bên trên."
+          },
+          "response": [
+            {
+              "name": "200 OK — Token trả về",
+              "status": "OK",
+              "code": 200,
+              "originalRequest": {
+                "method": "POST",
+                "url": { "raw": "{{entraBaseUrl}}/oauth2/v2.0/token" }
+              },
+              "body": "{\n  \"token_type\": \"Bearer\",\n  \"scope\": \"openid profile email\",\n  \"expires_in\": 3600,\n  \"access_token\": \"eyJ0eXAiOiJKV1Qi...\",\n  \"id_token\": \"eyJ0eXAiOiJKV1Qi...\",\n  \"refresh_token\": \"0.AXAA...\"\n}"
+            },
+            {
+              "name": "400 — ROPC bị tắt",
+              "status": "Bad Request",
+              "code": 400,
+              "originalRequest": {
+                "method": "POST",
+                "url": { "raw": "{{entraBaseUrl}}/oauth2/v2.0/token" }
+              },
+              "body": "{\n  \"error\": \"unsupported_grant_type\",\n  \"error_description\": \"ROPC is not supported → Dùng Authorization Code flow thay thế\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "🔄 Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const resp = pm.response.json();",
+                  "if (resp.access_token) {",
+                  "    pm.collectionVariables.set('bearerToken', resp.access_token);",
+                  "    if (resp.refresh_token) pm.collectionVariables.set('refreshToken', resp.refresh_token);",
+                  "    console.log('✅ Token refreshed!');",
+                  "} else {",
+                  "    console.error('❌ Refresh failed:', resp.error_description);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "grant_type", "value": "refresh_token" },
+                { "key": "client_id", "value": "{{clientId}}" },
+                { "key": "refresh_token", "value": "{{refreshToken}}" },
+                { "key": "scope", "value": "openid profile email" }
+              ]
+            },
+            "url": {
+              "raw": "{{entraBaseUrl}}/oauth2/v2.0/token",
+              "host": ["{{entraBaseUrl}}"],
+              "path": ["oauth2", "v2.0", "token"]
+            },
+            "description": "Làm mới Access Token mà không cần login lại. Token có hạn 1 giờ (3600s). Chạy request này khi token hết hạn."
+          }
+        },
+        {
+          "name": "🔍 Kiểm tra Token (Verify & Decode)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const token = pm.collectionVariables.get('bearerToken');",
+                  "if (!token) {",
+                  "    console.warn('⚠️ Chưa có token. Hãy chạy Login trước!');",
+                  "    return;",
+                  "}",
+                  "try {",
+                  "    const parts = token.split('.');",
+                  "    const payload = JSON.parse(atob(parts[1]));",
+                  "    const exp = new Date(payload.exp * 1000);",
+                  "    const now = new Date();",
+                  "    const remaining = Math.round((exp - now) / 60000);",
+                  "    console.log('=== 🎫 JWT Token Info ===');",
+                  "    console.log('Subject (userId):', payload.sub);",
+                  "    console.log('Email:', payload.email || payload.preferred_username);",
+                  "    console.log('Issuer:', payload.iss);",
+                  "    console.log('Audience:', payload.aud);",
+                  "    console.log('Expires:', exp.toLocaleString());",
+                  "    console.log('Status:', exp > now ? '✅ VALID (' + remaining + ' phút còn lại)' : '❌ EXPIRED');",
+                  "} catch(e) {",
+                  "    console.error('❌ Không decode được token:', e.message);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gatewayUrl}}/api/me",
+              "host": ["{{gatewayUrl}}"],
+              "path": ["api", "me"]
+            },
+            "description": "Gọi `/api/me` để kiểm tra token hiện tại còn hoạt động không.\n\nMở **Postman Console** (View → Show Postman Console hoặc Ctrl+Alt+C) để xem thông tin chi tiết của JWT token."
+          }
+        }
+      ]
+    },
     {
       "name": "🔀 Gateway — Luồng chính (Production)",
       "description": "Tất cả request đi qua Gateway service. Đây là luồng production thực tế.",

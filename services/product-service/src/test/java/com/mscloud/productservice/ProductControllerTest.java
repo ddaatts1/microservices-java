@@ -13,7 +13,7 @@ import static org.mockito.Mockito.when;
 
 class ProductControllerTest {
     private final ProductRepository products = mock(ProductRepository.class);
-    private final ProductController controller = new ProductController(products);
+    private final ProductController controller = new ProductController(products, mock(ProductSearchRepository.class));
 
     @Test
     void healthReturnsServiceStatus() {

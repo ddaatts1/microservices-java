@@ -1,16 +1,16 @@
-# Java microservices architecture
+# Kiến Trúc Java Microservices
 
-## Services created in this workspace
+## Các Service Trong Workspace
 
 ```text
-gateway-service       public entrypoint for local development
-user-service          app user profile, maps external identity to app user
-product-service       catalog/product CRUD
-order-service         creates orders and logs OrderCreated event
-notification-service  placeholder for email/SMS/push/event consumer
+gateway-service       điểm vào public cho local development
+user-service          hồ sơ người dùng, map external identity với app user
+product-service       CRUD danh mục sản phẩm
+order-service         tạo đơn hàng và ghi nhận sự kiện OrderCreated
+notification-service  service thông báo, dùng cho email/SMS/push/event consumer
 ```
 
-## Local request flow
+## Luồng Request Local
 
 ```text
 Client
@@ -18,7 +18,7 @@ Client
   -> user-service/product-service/order-service/notification-service
 ```
 
-## Later Azure mapping
+## Mapping Lên Azure
 
 ```text
 Azure API Management
@@ -29,9 +29,9 @@ Azure API Management
       -> order-service internal
       -> notification-service internal/event consumer
 
-Azure Container Registry stores service images.
-Azure Service Bus will replace local log-only events.
-Azure Database for PostgreSQL will replace local Docker Compose PostgreSQL.
-Azure Key Vault will store secrets.
-Application Insights will collect logs/traces/metrics.
+Azure Container Registry lưu Docker image của các service.
+Azure Service Bus thay thế event/log nội bộ khi chạy cloud.
+Azure Database for PostgreSQL thay PostgreSQL local trong Docker Compose.
+Azure Key Vault lưu secret.
+Application Insights thu log, trace và metric.
 ```

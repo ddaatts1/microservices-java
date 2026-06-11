@@ -1,7 +1,8 @@
-. (Join-Path $PSScriptRoot "common.ps1")
+﻿. (Join-Path $PSScriptRoot "common.ps1")
 
-# Build Docker image cho product-service va push image len Azure Container Registry.
-# Script nay dung khi demo 1 service truoc.
+# Build riêng product-service để demo một service trước khi deploy toàn hệ thống.
+# Đây là wrapper tiện dụng; full stack dùng build-push-images.ps1.
+
 Import-DeployConfig
 Assert-AzureCli
 Assert-LoggedInAzure
@@ -24,6 +25,7 @@ az acr login --name $AcrName --only-show-errors 1>$null
 Write-Host "Building $image"
 docker build -t $image $servicePath
 
+# Push image vào ACR để Container Apps có thể pull bằng Managed Identity.
 Write-Host "Pushing $image"
 docker push $image
 

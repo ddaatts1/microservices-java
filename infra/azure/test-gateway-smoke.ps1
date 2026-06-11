@@ -1,11 +1,12 @@
-param(
+﻿param(
   [string]$GatewayUrl
 )
 
 . (Join-Path $PSScriptRoot "common.ps1")
 
-# Smoke test cho gateway-service tren Azure Container Apps.
-# Script nay goi cac endpoint public va bao ro endpoint nao loi.
+# Smoke test cho gateway-service trên Azure Container Apps.
+# Gọi các endpoint chính qua gateway và in rõ endpoint nào lỗi.
+
 if ([string]::IsNullOrWhiteSpace($GatewayUrl)) {
   Import-DeployConfig
   Assert-AzureCli
@@ -27,6 +28,8 @@ if ([string]::IsNullOrWhiteSpace($GatewayUrl)) {
 }
 
 $GatewayUrl = $GatewayUrl.TrimEnd("/")
+
+# Dev headers mô phỏng identity khi AUTH_ENABLED=false.
 $headers = @{
   "X-User-Id" = "dev-user-001"
   "X-User-Email" = "dev@example.com"
@@ -42,6 +45,7 @@ $tests = @(
 )
 
 foreach ($test in $tests) {
+  # Mỗi request được bắt lỗi riêng để thấy toàn bộ tình trạng gateway.
   Write-Host "--- $($test.Name) $($test.Method) $($test.Url)"
   try {
     $params = @{

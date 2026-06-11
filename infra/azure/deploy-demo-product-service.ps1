@@ -1,3 +1,5 @@
+﻿# Wrapper demo một service:
+# preflight -> tạo hạ tầng -> build/push product-service -> deploy -> smoke test.
 & (Join-Path $PSScriptRoot "test-preflight.ps1")
 if ($LASTEXITCODE -ne 0) {
   exit $LASTEXITCODE

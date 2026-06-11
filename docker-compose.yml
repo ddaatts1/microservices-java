@@ -16,6 +16,32 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: mscloud-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: mscloud-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: mscloud
+      RABBITMQ_DEFAULT_PASS: mscloud
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   gateway-service:
     build: ./services/gateway-service
@@ -44,10 +70,16 @@ services:
       SPRING_DATASOURCE_PASSWORD: mscloud
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 2
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: mscloud
+      SPRING_RABBITMQ_PASSWORD: mscloud
     ports:
       - "8081:8080"
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   product-service:
@@ -60,10 +92,18 @@ services:
       SPRING_DATASOURCE_PASSWORD: mscloud
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 2
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: mscloud
+      SPRING_RABBITMQ_PASSWORD: mscloud
     ports:
       - "8082:8080"
     depends_on:
       postgres:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_started
+      rabbitmq:
         condition: service_healthy
 
   order-service:
@@ -72,12 +112,15 @@ services:
     environment:
       SERVER_PORT: 8080
       PRODUCT_SERVICE_URL: http://product-service:8080
-      NOTIFICATION_SERVICE_URL: http://notification-service:8080
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/order_db
       SPRING_DATASOURCE_USERNAME: mscloud
       SPRING_DATASOURCE_PASSWORD: mscloud
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 2
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: mscloud
+      SPRING_RABBITMQ_PASSWORD: mscloud
     ports:
       - "8083:8080"
     depends_on:
@@ -85,8 +128,8 @@ services:
         condition: service_healthy
       product-service:
         condition: service_started
-      notification-service:
-        condition: service_started
+      rabbitmq:
+        condition: service_healthy
 
   notification-service:
     build: ./services/notification-service
@@ -98,11 +141,18 @@ services:
       SPRING_DATASOURCE_PASSWORD: mscloud
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 2
       SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: 0
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: mscloud
+      SPRING_RABBITMQ_PASSWORD: mscloud
     ports:
       - "8084:8080"
     depends_on:
       postgres:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
 volumes:
   postgres-data:
+  elasticsearch-data:

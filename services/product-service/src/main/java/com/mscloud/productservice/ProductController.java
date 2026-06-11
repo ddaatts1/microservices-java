@@ -18,14 +18,21 @@ import java.util.UUID;
 @RequestMapping("/api/products")
 public class ProductController {
     private final ProductRepository products;
+    private final ProductSearchRepository searchRepository;
 
-    public ProductController(ProductRepository products) {
+    public ProductController(ProductRepository products, ProductSearchRepository searchRepository) {
         this.products = products;
+        this.searchRepository = searchRepository;
     }
 
     @GetMapping("/health")
     public Map<String, String> health() {
         return Map.of("service", "product-service", "status", "UP");
+    }
+
+    @GetMapping("/search")
+    public List<ProductDocument> search(@org.springframework.web.bind.annotation.RequestParam("q") String query) {
+        return searchRepository.findByNameContainingIgnoreCaseOrDescriptionContainingIgnoreCase(query, query);
     }
 
     @GetMapping

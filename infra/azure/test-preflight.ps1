@@ -1,4 +1,7 @@
-. (Join-Path $PSScriptRoot "common.ps1")
+﻿. (Join-Path $PSScriptRoot "common.ps1")
+
+# Preflight kiểm tra các điều kiện bắt buộc trước khi tạo hạ tầng/deploy.
+# Mục tiêu là fail sớm với thông báo rõ ràng thay vì lỗi giữa chừng.
 
 $script:FailureCount = 0
 $script:ConfigLoaded = $false
@@ -23,8 +26,9 @@ function Invoke-PreflightCheck {
   param(
     [Parameter(Mandatory=$true)][string]$Name,
     [Parameter(Mandatory=$true)][scriptblock]$Check
-  )
+)
 
+  # Chạy từng check độc lập để gom đủ lỗi trong một lần kiểm tra.
   try {
     & $Check
     Write-Pass $Name
@@ -40,6 +44,7 @@ function Assert-CommandExists([string]$CommandName, [string]$InstallHint) {
 }
 
 function Assert-DeployConfigValues {
+  # Kiểm tra các giá trị dễ gây lỗi Azure: password, tên ACR, tên PostgreSQL.
   Assert-NotPlaceholderPassword $PostgresAdminPassword
 
   if ($AcrName -notmatch '^[a-z0-9]{5,50}$') {
@@ -60,6 +65,7 @@ function Assert-DeployConfigValues {
 }
 
 function Assert-ServiceFolders {
+  # Đảm bảo danh sách service trong env.ps1 khớp source code và có Dockerfile.
   $repoRoot = Get-RepoRoot
   $expected = @(
     "gateway-service",
@@ -93,6 +99,7 @@ function Assert-ServiceFolders {
 }
 
 function Assert-AcrNameAvailableOrExisting {
+  # ACR name là global unique; nếu resource đã tồn tại trong RG thì xem là hợp lệ.
   $existingAcr = Invoke-QuietNative { az acr show `
     --name $AcrName `
     --resource-group $ResourceGroup `
@@ -120,6 +127,7 @@ function Assert-AcrNameAvailableOrExisting {
 }
 
 function Assert-PostgresNameAvailableOrExisting {
+  # PostgreSQL server name cũng là global unique trên Azure.
   $existingServer = Invoke-QuietNative { az postgres flexible-server show `
     --name $PostgresServerName `
     --resource-group $ResourceGroup `

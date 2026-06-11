@@ -2,7 +2,7 @@
 
 File này dùng trên máy mới sau khi copy folder `microservices-java`.
 
-Các file `infra/azure/*.ps1` la script tu dong chay command theo tung buoc, de ban khoi copy-paste tung lenh tay.
+Các file `infra/azure/*.ps1` là script tự động chạy command theo từng bước, để bạn khỏi copy-paste từng lệnh tay.
 
 ## 0. Mở đúng terminal
 
@@ -354,10 +354,10 @@ az containerapp logs show --name "order-service" --resource-group $ResourceGroup
 Nếu log của `product-service` có `Connection refused` khi vào PostgreSQL, thì:
 
 ```text
-1. Copy lai ban moi nhat cua infra/azure/create-infra.ps1 sang may kia.
-2. Chay lai .\infra\azure\create-infra.ps1 de tao DB.
-3. Chay lai .\infra\azure\deploy-product-service-demo.ps1.
-4. Chay lai .\infra\azure\test-product-service-demo.ps1.
+1. Copy lại bản mới nhất của `infra/azure/create-infra.ps1` sang máy kia.
+2. Chạy lại `.\infra\azure\create-infra.ps1` để tạo DB.
+3. Chạy lại `.\infra\azure\deploy-product-service-demo.ps1`.
+4. Chạy lại `.\infra\azure\test-product-service-demo.ps1`.
 ```
 
 Nếu vẫn lỗi, chạy các lệnh verify DB:

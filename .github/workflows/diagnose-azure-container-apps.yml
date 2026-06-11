@@ -1,17 +1,39 @@
 # ==============================================================================
-# QUY TRÌNH CHẨN ĐOÁN VÀ ĐỌC LOG (DIAGNOSE) TRÊN CLOUD
-# Tác dụng: Thay vì phải truy cập vào màn hình portal Azure phức tạp,
-# Quản trị viên chỉ cần bấm chạy file này, nó sẽ tự động chui vào hệ thống 
-# Azure Container Apps để lấy Log (báo cáo lỗi) của các ứng dụng ra màn hình.
+# WORKFLOW: DIAGNOSE AZURE CONTAINER APPS
+# 
+# DESCRIPTION:
+# Cung cấp công cụ chẩn đoán từ xa (Remote Diagnostics & Troubleshooting) 
+# cho phép kỹ sư hệ thống trích xuất Telemetry Data trực tiếp từ môi trường Cloud.
+# Việc này loại bỏ nhu cầu truy cập thủ công vào Azure Portal để dò tìm lỗi.
+#
+# INPUT PARAMETERS:
+# - service: Chỉ định định danh của Microservice cần phân tích.
+# - lines: Chỉ định số lượng dòng Log gần nhất (Tail Logs) cần truy xuất.
+#
+# DIAGNOSTIC WORKFLOW:
+# 1. TRÍCH XUẤT THÔNG TIN PHIÊN BẢN (REVISION PROFILING):
+#    - Truy vấn Azure CLI (az containerapp revision list) để giám sát:
+#      * Trạng thái định tuyến luồng (Traffic Weight).
+#      * Sức khỏe hệ thống (Health State: Healthy/Unhealthy).
+#      * Trạng thái vòng đời hiện tại (Running State).
+#
+# 2. XUẤT NHẬT KÝ THỰC THI CHUẨN (STDOUT/STDERR):
+#    - Gọi lệnh (az containerapp logs show) nhằm thu thập output của container 
+#      giống với ngữ cảnh giám sát trên localhost.
+#
+# 3. PHÂN TÍCH NHẬT KÝ HỆ THỐNG (LOG ANALYTICS KQL QUERY):
+#    - Kết nối vào Log Analytics Workspace của Azure.
+#    - Thực thi ngôn ngữ truy vấn KQL để tự động sàng lọc các sự kiện nghiêm trọng 
+#      thuộc cấp độ hệ thống như: Container Crash, Lỗi bộ nhớ (Out of Memory - OOM), 
+#      và Tiến trình bị hủy ép buộc (Killed).
 # ==============================================================================
 name: Diagnose Azure Container Apps
 
-# Chỉ chạy khi có người dùng tự bấm nút trên giao diện
 on:
   workflow_dispatch:
     inputs:
       service:
-        description: Chọn Service bạn muốn xem lỗi (mặc định lấy tất cả)
+        description: Container App to inspect, or all
         required: true
         type: choice
         default: all
@@ -23,7 +45,7 @@ on:
           - order-service
           - notification-service
       lines:
-        description: Số lượng dòng Log cần lấy về
+        description: Log lines per app
         required: true
         default: "120"
 
@@ -33,13 +55,11 @@ jobs:
     environment: dev
 
     steps:
-      # Bước 1: Đăng nhập Azure với quyền quản trị
       - name: Azure login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # Bước 2: Dùng lệnh Azure CLI (az) để trích xuất báo cáo lỗi
       - name: Collect Container Apps logs
         shell: pwsh
         run: |
@@ -55,25 +75,22 @@ jobs:
             "notification-service"
           )
 
-          # Nếu chọn all thì duyệt qua tất cả 5 service
           if ($requestedService -eq "all") {
             $services = $allServices
           } else {
             $services = @($requestedService)
           }
 
-          # Cài đặt công cụ giao tiếp với Container Apps
           az extension add --name containerapp --upgrade --only-show-errors
 
           foreach ($service in $services) {
             Write-Host ""
             Write-Host "============================================================"
-            Write-Host "ĐANG LẤY THÔNG TIN TỪ CONTAINER APP: $service"
+            Write-Host "Container App: $service"
             Write-Host "============================================================"
 
             Write-Host ""
-            Write-Host "[1] Trạng thái các phiên bản (Revisions):"
-            # Kiểm tra xem app có đang chạy khỏe (active) hay không
+            Write-Host "Revision status:"
             az containerapp revision list `
               --name $service `
               --resource-group $resourceGroup `
@@ -81,8 +98,7 @@ jobs:
               -o table
 
             Write-Host ""
-            Write-Host "[2] Nội dung Log (Console Output):"
-            # Lấy các dòng chữ (log) ứng dụng in ra màn hình giống như chạy ở dưới máy
+            Write-Host "Recent logs:"
             az containerapp logs show `
               --name $service `
               --resource-group $resourceGroup `
@@ -90,13 +106,12 @@ jobs:
               --only-show-errors
 
             Write-Host ""
-            Write-Host "[3] Log Lỗi Hệ Thống (Out Of Memory, Crash):"
-            # Tìm kiếm nâng cao trong kho Log Analytics xem ứng dụng có bị sập nguồn hay đầy RAM không
+            Write-Host "System Logs (Errors/Warnings):"
             $query = "ContainerAppSystemLogs_CL | where ContainerAppName_s == '$service' | where Log_s contains 'failed' or Log_s contains 'error' or Log_s contains 'OOM' or Log_s contains 'killed' | project TimeGenerated, Log_s, Reason_s | order by TimeGenerated desc | limit 20"
             $workspaceId = az monitor log-analytics workspace show --resource-group $resourceGroup --workspace-name $LogAnalyticsWorkspace --query customerId -o tsv
             if ($workspaceId) {
                 az monitor log-analytics query -w $workspaceId --analytics-query $query -o table
             } else {
-                Write-Host "Không tìm thấy kho Log Analytics Workspace."
+                Write-Host "Could not find Log Analytics workspace to query system logs."
             }
           }

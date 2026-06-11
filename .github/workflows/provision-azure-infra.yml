@@ -1,13 +1,31 @@
 # ==============================================================================
-# QUY TRÌNH TỰ ĐỘNG KHỞI TẠO HẠ TẦNG (INFRASTRUCTURE AS CODE)
-# Tác dụng: Chỉ cần 1 click, kịch bản này sẽ tự động tạo toàn bộ "đất đai" trên Azure 
-# (Database, Container Apps Environment, Registry, Log Analytics...) 
-# thay vì phải lên giao diện web Azure click bằng tay từng dịch vụ một.
+# WORKFLOW: PROVISION AZURE INFRASTRUCTURE (IaC)
+# 
+# DESCRIPTION:
+# Kịch bản tự động hóa cấp phát hạ tầng điện toán đám mây (Infrastructure as Code).
+# Thiết lập toàn bộ hệ sinh thái dịch vụ nền tảng trên Microsoft Azure cho ứng dụng
+# Microservices, bao gồm: Azure Container Apps Environment, Container Registry, 
+# Log Analytics Workspace, và nền tảng cơ sở dữ liệu PostgreSQL Flexible Server.
+#
+# TRIGGERS:
+# - workflow_dispatch: Yêu cầu kích hoạt thủ công, nhằm đảm bảo quy trình thay đổi 
+#   kiến trúc hạ tầng đám mây phải được kiểm soát nghiêm ngặt bởi người có thẩm quyền, 
+#   ngăn ngừa các gián đoạn không mong muốn đối với môi trường đang vận hành.
+#
+# ARCHITECTURE & EXECUTION PIPELINE:
+# 1. AZURE AUTHENTICATION: 
+#    - Dùng thông tin định danh cấp phát cho Service Principal (từ GitHub Secrets) 
+#      để xác thực và ủy quyền trên nền tảng Azure.
+# 2. CONFIGURATION GENERATION: 
+#    - Đọc các biến số môi trường (Variables) theo ngữ cảnh 'dev'.
+#    - Tự động sinh tệp cấu hình trung gian (env.ps1) theo định dạng PowerShell.
+# 3. RESOURCE PROVISIONING: 
+#    - Kích hoạt module PowerShell cốt lõi (create-infra.ps1). Script này sẽ phân giải 
+#      các lệnh Azure CLI (hoặc Bicep/ARM Templates) nhằm xây dựng kiến trúc tài nguyên 
+#      theo cấu hình đã định nghĩa.
 # ==============================================================================
 name: Provision Azure Infrastructure
 
-# workflow_dispatch nghĩa là workflow này không chạy tự động khi push code, 
-# mà chỉ chạy khi có người quản trị bấm nút "Run workflow" bằng tay.
 on:
   workflow_dispatch:
 
@@ -18,22 +36,17 @@ concurrency:
 jobs:
   provision:
     runs-on: ubuntu-latest
-    environment: dev # Lấy các biến môi trường (Variables) ở mục 'dev' trong repo settings
+    environment: dev
 
     steps:
-      # Bước 1: Tải code chứa kịch bản tạo hạ tầng về
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Bước 2: Đăng nhập vào Azure bằng tài khoản dịch vụ (Service Principal)
       - name: Azure login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # Bước 3: Tạo một file cấu hình môi trường (env.ps1) 
-      # bằng cách đọc các biến từ GitHub (vars.xxx) và điền vào file.
-      # File này sẽ được dùng cho các script PowerShell ở bước sau.
       - name: Generate Azure env config
         shell: pwsh
         run: |
@@ -56,8 +69,6 @@ jobs:
           `$Services = @("user-service", "product-service", "notification-service", "order-service", "gateway-service")
           "@ | Set-Content -Path infra/azure/env.ps1 -Encoding UTF8
 
-      # Bước 4: Chạy script PowerShell để ra lệnh cho Azure tạo tài nguyên.
-      # Script này nằm ở thư mục infra/azure/create-infra.ps1
       - name: Create or update Azure infrastructure
         shell: pwsh
         run: ./infra/azure/create-infra.ps1

@@ -1,5 +1,5 @@
-# Wrapper full stack:
-# preflight -> tao infra -> build image cho 5 service -> deploy all apps.
+﻿# Wrapper deploy toàn hệ thống:
+# preflight -> tạo hạ tầng -> build image 5 service -> deploy tất cả Container Apps.
 & (Join-Path $PSScriptRoot "test-preflight.ps1")
 if ($LASTEXITCODE -ne 0) {
   exit $LASTEXITCODE

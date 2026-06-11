@@ -1,4 +1,4 @@
-param(
+﻿param(
   [string]$BaseUrl,
   [int]$MaxWaitSeconds = 600,
   [int]$PollSeconds = 15
@@ -6,8 +6,8 @@ param(
 
 . (Join-Path $PSScriptRoot "common.ps1")
 
-# Smoke test cho product-service demo: health + list products.
-# Neu khong truyen BaseUrl, script tu lay FQDN tu Container App.
+# Smoke test cho product-service demo: health check và danh sách sản phẩm.
+# Nếu không truyền BaseUrl, script tự lấy FQDN từ Container App.
 
 if ([string]::IsNullOrWhiteSpace($BaseUrl)) {
   Import-DeployConfig
@@ -34,6 +34,7 @@ $BaseUrl = $BaseUrl.TrimEnd("/")
 Write-Host "Testing $BaseUrl"
 
 function Wait-ForHealth([string]$Url) {
+  # Container App có thể cần vài phút để pull image/startup, nên poll health endpoint.
   $deadline = [DateTime]::UtcNow.AddSeconds($MaxWaitSeconds)
   $attempt = 0
   $lastError = $null
@@ -57,6 +58,7 @@ function Wait-ForHealth([string]$Url) {
 
 $health = Wait-ForHealth $BaseUrl
 
+# Sau khi health UP, kiểm tra API nghiệp vụ có trả sản phẩm hay không.
 $products = Invoke-RestMethod `
   -Method Get `
   -Uri "$BaseUrl/api/products" `

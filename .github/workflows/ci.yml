@@ -1,39 +1,43 @@
 # ==============================================================================
-# QUY TRÌNH TÍCH HỢP LIÊN TỤC (CONTINUOUS INTEGRATION - CI)
-# Tác dụng: Mỗi khi có code mới đẩy lên GitHub, file này sẽ tự động mượn một máy ảo 
-# (server) của GitHub để tải code về, cài đặt Java và chạy kiểm thử (Test) tự động.
-# Giúp phát hiện sớm lỗi trước khi cho phép ghép (merge) code vào hệ thống.
+# WORKFLOW: CONTINUOUS INTEGRATION (CI)
+# 
+# DESCRIPTION:
+# Quy trình Tích hợp Liên tục (CI) đảm bảo tính toàn vẹn của mã nguồn. 
+# Workflow này tự động kích hoạt quá trình biên dịch (build) và kiểm thử (test) 
+# cho các ứng dụng Java/Spring Boot sử dụng công cụ quản lý vòng đời Maven.
+#
+# TRIGGERS:
+# - push: Kích hoạt khi có commit mới đẩy lên nhánh 'main' hoặc 'master'.
+# - pull_request: Kích hoạt khi có yêu cầu hợp nhất mã (PR) vào các nhánh chính.
+#
+# ENVIRONMENT:
+# - OS: Ubuntu Latest
+# - Java JDK: Version 17 (Temurin distribution) với cơ chế lưu trữ đệm (maven cache)
+#   nhằm tối ưu hóa thời gian tải thư viện dependency trong các lần chạy kế tiếp.
 # ==============================================================================
 name: CI
 
-# 'on' xác định KHI NÀO thì quy trình này chạy
 on:
   push:
     branches:
       - main
       - master
-  pull_request: # Chạy cả khi có ai đó tạo Pull Request đòi gộp code
+  pull_request:
 
 jobs:
   build:
-    # Mượn một máy chủ ảo chạy hệ điều hành Ubuntu mới nhất của GitHub
     runs-on: ubuntu-latest
 
-    # Các bước thực hiện tuần tự trên máy ảo đó
     steps:
-      # Bước 1: Tải (clone) toàn bộ mã nguồn từ repo này về máy ảo
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Bước 2: Cài đặt môi trường Java (JDK 17) để có thể chạy lệnh Maven
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: temurin # Bản phân phối Java (Eclipse Temurin)
+          distribution: temurin
           java-version: "17"
-          cache: maven # Lưu bộ nhớ đệm (cache) thư viện để lần sau chạy nhanh hơn
+          cache: maven
 
-      # Bước 3: Chạy lệnh build và test của Maven
-      # Nếu có bất kỳ lỗi nào (compile lỗi, test sai), workflow sẽ báo Đỏ (Fail)
       - name: Build and test
         run: mvn test

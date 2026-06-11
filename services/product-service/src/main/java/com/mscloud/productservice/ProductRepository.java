@@ -3,6 +3,7 @@ package com.mscloud.productservice;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -31,6 +32,7 @@ public class ProductRepository {
         return jdbc.query("SELECT * FROM products WHERE id = ?", productMapper, id).stream().findFirst();
     }
 
+    @Transactional
     public Product create(ProductRequest request) {
         Product product = new Product(UUID.randomUUID(), request.name(), request.price(), request.description(), request.stock());
         jdbc.update(
@@ -44,9 +46,14 @@ public class ProductRepository {
                 product.description(),
                 product.stock()
         );
+        jdbc.update(
+                "INSERT INTO product_outbox (id, product_id, event_type, status, created_at) VALUES (?, ?, ?, ?, NOW())",
+                UUID.randomUUID(), product.id(), "PRODUCT_CREATED", "PENDING"
+        );
         return product;
     }
 
+    @Transactional
     public Optional<Product> update(UUID id, ProductRequest request) {
         int updated = jdbc.update(
                 """
@@ -63,6 +70,10 @@ public class ProductRepository {
         if (updated == 0) {
             return Optional.empty();
         }
+        jdbc.update(
+                "INSERT INTO product_outbox (id, product_id, event_type, status, created_at) VALUES (?, ?, ?, ?, NOW())",
+                UUID.randomUUID(), id, "PRODUCT_UPDATED", "PENDING"
+        );
         return findById(id);
     }
 }

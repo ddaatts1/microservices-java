@@ -1,7 +1,8 @@
-. (Join-Path $PSScriptRoot "common.ps1")
+﻿. (Join-Path $PSScriptRoot "common.ps1")
 
-# Tao hoac cap nhat Container App demo public cho product-service.
-# Script nay lay image tu ACR, gan database va mo ingress external.
+# Tạo/cập nhật Container App public riêng cho product-service demo.
+# Dùng để kiểm chứng nhanh một service trước khi deploy toàn bộ microservices.
+
 Import-DeployConfig
 Assert-AzureCli
 Assert-LoggedInAzure
@@ -28,11 +29,13 @@ if ([string]::IsNullOrWhiteSpace($postgresHost)) {
 $image = "$loginServer/$serviceName`:$ImageTag"
 
 function Test-ContainerAppExists([string]$Name) {
+  # Chọn update nếu demo app đã tồn tại, create nếu chưa có.
   $result = Invoke-QuietNative { az containerapp show --name $Name --resource-group $ResourceGroup --query id -o tsv --only-show-errors }
   return $result.ExitCode -eq 0 -and -not [string]::IsNullOrWhiteSpace(($result.Output -join ""))
 }
 
 function Get-ContainerAppUrl([string]$Name) {
+  # Lấy URL public để in ra cho smoke test sau deploy.
   $fqdn = az containerapp show `
     --name $Name `
     --resource-group $ResourceGroup `
@@ -45,6 +48,8 @@ function Get-ContainerAppUrl([string]$Name) {
 }
 
 $dbSecret = @("db-password=$PostgresAdminPassword")
+
+# Env production trỏ product-service tới PostgreSQL Flexible Server và dùng secretref.
 $envVars = @(
   "SERVER_PORT=8080",
   "SPRING_PROFILES_ACTIVE=prod",

@@ -1,12 +1,16 @@
-param(
+﻿param(
+  # Nếu để trống thì deploy tất cả service trong env.ps1.
+  # Ví dụ deploy riêng product-service: -ServicesToDeploy product-service
   [string[]]$ServicesToDeploy = @(),
+  # Token tùy chọn để ép Azure Container Apps tạo revision mới khi chỉ đổi config/env.
   [string]$RevisionToken = ""
 )
 
 . (Join-Path $PSScriptRoot "common.ps1")
 
-# Deploy hoac cap nhat tat ca Container App tren Azure.
-# Gateway public, cac service con lai internal.
+# Deploy/cập nhật Container Apps cho các service được chọn.
+# Gateway mở external ingress; các service nghiệp vụ dùng internal ingress.
+
 Import-DeployConfig
 Assert-AzureCli
 Assert-LoggedInAzure
@@ -15,7 +19,11 @@ Assert-NotPlaceholderPassword $PostgresAdminPassword
 Ensure-ContainerAppsExtension
 
 $loginServer = Get-AcrLoginServer $AcrName $ResourceGroup
+
+# identityId là Managed Identity đã được gán AcrPull để Container Apps kéo image từ ACR.
 $identityId = az identity show --name $UserAssignedIdentity --resource-group $ResourceGroup --query id -o tsv
+
+# Lấy FQDN PostgreSQL từ Azure; nếu CLI không trả về thì dùng quy ước hostname mặc định.
 $postgresHost = az postgres flexible-server show `
   --name $PostgresServerName `
   --resource-group $ResourceGroup `
@@ -31,6 +39,7 @@ if ([string]::IsNullOrWhiteSpace($postgresHost)) {
 
 $selectedServices = if ($ServicesToDeploy.Count -gt 0) { $ServicesToDeploy } else { $Services }
 foreach ($service in $selectedServices) {
+  # Chặn tên service không hợp lệ để tránh deploy nhầm Container App.
   if ($Services -notcontains $service) {
     throw "Unknown service '$service'. Allowed values: $($Services -join ', ')"
   }
@@ -40,16 +49,20 @@ $authEnabledValue = if (Get-Variable -Name AuthEnabled -ErrorAction SilentlyCont
 $authIssuerUriValue = if (Get-Variable -Name AuthIssuerUri -ErrorAction SilentlyContinue) { $AuthIssuerUri } else { "" }
 $authAudienceValue = if (Get-Variable -Name AuthAudience -ErrorAction SilentlyContinue) { $AuthAudience } else { "" }
 
+# Auth config là optional để demo không cần Entra, nhưng production có thể bật bằng env.ps1.
 function Test-ShouldDeploy([string]$Name) {
+  # Workflow có thể deploy từng service; local có thể deploy toàn bộ.
   return $selectedServices -contains $Name
 }
 
 function Test-ContainerAppExists([string]$Name) {
+  # Kiểm tra app đã tồn tại để chọn create hoặc update.
   $result = Invoke-QuietNative { az containerapp show --name $Name --resource-group $ResourceGroup --query id -o tsv --only-show-errors }
   return $result.ExitCode -eq 0 -and -not [string]::IsNullOrWhiteSpace(($result.Output -join ""))
 }
 
 function Get-ContainerAppUrl([string]$Name) {
+  # URL này dùng cho gateway gọi service nội bộ và để in smoke-test endpoint.
   $fqdn = az containerapp show `
     --name $Name `
     --resource-group $ResourceGroup `
@@ -74,6 +87,10 @@ function Upsert-ContainerApp {
     [int]$MaxReplicas = 3
   )
 
+  # Hàm này là "upsert": app chưa có thì create, app đã có thì update.
+  # Nhờ vậy một script có thể dùng cho cả lần deploy đầu và các lần deploy sau.
+
+  # RevisionToken dùng cho config-only deploy để ép Container Apps tạo revision mới.
   $effectiveEnvVars = $EnvVars
   if (-not [string]::IsNullOrWhiteSpace($RevisionToken)) {
     $effectiveEnvVars = $effectiveEnvVars + @("DEPLOY_REVISION_TOKEN=$RevisionToken")
@@ -82,6 +99,7 @@ function Upsert-ContainerApp {
   if (Test-ContainerAppExists $Name) {
     Write-Host "Updating Container App: $Name"
     if ($Secrets.Count -gt 0) {
+      # Secrets được set trước env vars vì env có thể tham chiếu dạng secretref.
       az containerapp secret set `
         --name $Name `
         --resource-group $ResourceGroup `
@@ -96,6 +114,7 @@ function Upsert-ContainerApp {
       --identity $identityId `
       --only-show-errors 1>$null
 
+    # Khi tag là :current, chỉ cập nhật config/env để không cần image mới.
     $imageArgs = if ($Image -match ":current$") { @() } else { @("--image", $Image) }
 
     az containerapp update `
@@ -146,6 +165,8 @@ function Upsert-ContainerApp {
 }
 
 function DbEnv([string]$DatabaseName) {
+  # Mỗi service trỏ đến database riêng, nhưng dùng cùng PostgreSQL Flexible Server.
+  # Password được truyền bằng secretref để không lộ trực tiếp trong env var của app.
   return @(
     "SERVER_PORT=8080",
     "SPRING_PROFILES_ACTIVE=prod",
@@ -157,9 +178,11 @@ function DbEnv([string]$DatabaseName) {
   )
 }
 
+# Secret này được set vào từng Container App có dùng database.
 $dbSecret = @("db-password=$PostgresAdminPassword")
 
 if (Test-ShouldDeploy "user-service") {
+  # User service giữ profile nội bộ và mapping từ external identity.
   Upsert-ContainerApp `
     -Name "user-service" `
     -Image "$loginServer/user-service`:$ImageTag" `
@@ -169,6 +192,7 @@ if (Test-ShouldDeploy "user-service") {
 }
 
 if (Test-ShouldDeploy "product-service") {
+  # Product service là catalog chính, hiện dùng product_db.
   Upsert-ContainerApp `
     -Name "product-service" `
     -Image "$loginServer/product-service`:$ImageTag" `
@@ -178,6 +202,7 @@ if (Test-ShouldDeploy "product-service") {
 }
 
 if (Test-ShouldDeploy "notification-service") {
+  # Notification service chạy internal, chỉ gateway/order-service gọi qua mạng nội bộ.
   Upsert-ContainerApp `
     -Name "notification-service" `
     -Image "$loginServer/notification-service`:$ImageTag" `
@@ -190,6 +215,8 @@ $productUrl = Get-ContainerAppUrl "product-service"
 $notificationUrl = Get-ContainerAppUrl "notification-service"
 
 if (Test-ShouldDeploy "order-service") {
+  # Order service cần URL của product và notification để gọi service-to-service.
+  # Các URL này là FQDN internal của Container Apps, không phải public endpoint.
   Upsert-ContainerApp `
     -Name "order-service" `
     -Image "$loginServer/order-service`:$ImageTag" `
@@ -205,6 +232,8 @@ $userUrl = Get-ContainerAppUrl "user-service"
 $orderUrl = Get-ContainerAppUrl "order-service"
 
 if (Test-ShouldDeploy "gateway-service") {
+  # Gateway là entrypoint public và nhận cấu hình auth JWT/OIDC.
+  # Chỉ gateway mở external ingress; các service còn lại giữ internal ingress.
   Upsert-ContainerApp `
     -Name "gateway-service" `
     -Image "$loginServer/gateway-service`:$ImageTag" `

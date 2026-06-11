@@ -40,6 +40,14 @@ public class GatewayController {
         this.notificationClient = RestClient.create(notificationServiceUrl);
     }
 
+
+
+
+        @GetMapping("")
+    public Map<String, String> health() {
+        return "gateway!"
+    }
+
     @GetMapping("/health")
     public Map<String, String> health() {
         return Map.of("service", "gateway-service", "status", "UP");

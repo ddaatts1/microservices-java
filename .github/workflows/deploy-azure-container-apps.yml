@@ -1,39 +1,8 @@
-# ==============================================================================
-# WORKFLOW: DEPLOY AZURE CONTAINER APPS (CI/CD)
-# 
-# DESCRIPTION:
-# Quy trình Triển khai Liên tục (CD) dành cho phân hệ Microservices (Backend). 
-# Tích hợp cơ chế Sàng lọc Thông minh (Differential Analysis) để xác định chính xác 
-# Microservice nào vừa bị thay đổi mã nguồn, từ đó chỉ tiến hành Build Image và 
-# Deploy đối với service đó, giúp tối ưu hóa băng thông và thời gian thực thi CI/CD.
-#
-# TRIGGERS:
-# - workflow_run: Tự động kích hoạt khi workflow 'CI' kết thúc với trạng thái 'success'.
-# - workflow_dispatch: Cho phép kích hoạt thủ công, hỗ trợ truyền tham số cấu hình:
-#   * deploy_mode: Lựa chọn 'build-and-deploy' (Mặc định) hoặc 'config-only' 
-#     (Chỉ cập nhật Revision mới từ cấu hình môi trường mà không cần build lại Image).
-#   * image_tag: Khởi tạo với Tag tùy chỉnh (Mặc định sử dụng commit SHA).
-#   * service: Chỉ định rõ mục tiêu cần deploy, hoặc sử dụng cơ chế dò tự động (auto).
-#
-# CORE EXECUTION PIPELINE:
-# 1. DIFFERENTIAL ANALYSIS (Phân tích chênh lệch):
-#    - Dùng 'git diff HEAD^1 HEAD' để lập bản đồ tệp bị thay đổi.
-#    - Phản ứng toàn cục: Nếu tệp 'pom.xml' ở cấp độ Root thay đổi -> Đánh dấu Rebuild tất cả.
-#    - Phản ứng cục bộ: Nếu tệp thuộc 'services/<tên-service>/*' thay đổi -> Đưa <tên-service> 
-#      vào hàng đợi triển khai.
-#
-# 2. IMAGE BUILDING & REGISTRY PUSH:
-#    - Đọc các biến môi trường từ GitHub (Environment Secrets & Variables).
-#    - Kích hoạt tiến trình Docker Build và Push lên kho lưu trữ Azure Container Registry (ACR).
-#
-# 3. CONTAINER APPS REVISION UPDATE:
-#    - Ra lệnh cho hệ sinh thái Azure kéo (pull) Image mới nhất.
-#    - Sinh ra một Bản phát hành mới (Revision) và tự động định tuyến toàn bộ lưu lượng 
-#      truy cập (Traffic Routing 100%) sang Revision này (Zero-downtime Deployment).
-# ==============================================================================
 name: Deploy Azure Container Apps
 
+# TRIGGERS: Xác định điều kiện kích hoạt quy trình Triển khai Liên tục (CD) cho hệ thống Microservices.
 on:
+  # Tự động kích hoạt khi workflow 'CI' hoàn tất thành công.
   workflow_run:
     workflows:
       - CI
@@ -42,6 +11,8 @@ on:
       - master
     types:
       - completed
+  
+  # Kích hoạt thủ công cho phép truyền tham số cấu hình.
   workflow_dispatch:
     inputs:
       deploy_mode:
@@ -70,6 +41,7 @@ on:
           - order-service
           - gateway-service
 
+# Đảm bảo luồng thực thi độc quyền, không có hai tiến trình deploy chạy song song gây xung đột.
 concurrency:
   group: azure-container-apps-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
@@ -78,15 +50,19 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: dev
+    # Chỉ thực thi khi sự kiện trigger không phải 'workflow_run' HOẶC 'workflow_run' có trạng thái 'success'.
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
 
     steps:
+      # Bước 1: Tải mã nguồn tại thời điểm kích hoạt workflow.
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
+      # Bước 2: DIFFERENTIAL ANALYSIS. Dùng 'git diff' để xác định service nào bị thay đổi mã nguồn.
+      # Phản ứng toàn cục nếu 'pom.xml' thay đổi. Phản ứng cục bộ nếu tệp trong 'services/<service-name>' thay đổi.
       - name: Select services to deploy
         id: select-services
         shell: pwsh
@@ -161,12 +137,15 @@ jobs:
           Write-Host "Image tag: $imageTag"
           Write-Host "Deploy mode: $deployMode"
 
+      # Bước 3: AZURE AUTHENTICATION. Xác thực qua Service Principal.
       - name: Azure login
         if: steps.select-services.outputs.skip != 'true'
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      # Bước 4: CONFIGURATION GENERATION. Trích xuất bí mật và biến số từ GitHub Environment 
+      # để cấp phát cho script PowerShell dưới dạng file cấu hình trung gian.
       - name: Generate Azure env config
         if: steps.select-services.outputs.skip != 'true'
         shell: pwsh
@@ -193,6 +172,7 @@ jobs:
           `$Services = @("user-service", "product-service", "notification-service", "order-service", "gateway-service")
           "@ | Set-Content -Path infra/azure/env.ps1 -Encoding UTF8
 
+      # Bước 5: IMAGE BUILDING & REGISTRY PUSH. Build mã nguồn thành Docker Image và Push lên Azure Container Registry.
       - name: Build and push service images
         if: steps.select-services.outputs.skip != 'true' && steps.select-services.outputs.deploy_mode != 'config-only'
         shell: pwsh
@@ -200,6 +180,7 @@ jobs:
           $services = "${{ steps.select-services.outputs.services }}".Split(",", [System.StringSplitOptions]::RemoveEmptyEntries)
           ./infra/azure/build-push-images.ps1 -ServicesToDeploy $services
 
+      # Bước 6: CONTAINER APPS REVISION UPDATE. Định tuyến 100% Traffic sang bản Revision mới chứa Image vừa đẩy lên.
       - name: Deploy Container Apps
         if: steps.select-services.outputs.skip != 'true'
         shell: pwsh

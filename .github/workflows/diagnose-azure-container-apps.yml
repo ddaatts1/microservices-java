@@ -1,34 +1,6 @@
-# ==============================================================================
-# WORKFLOW: DIAGNOSE AZURE CONTAINER APPS
-# 
-# DESCRIPTION:
-# Cung cấp công cụ chẩn đoán từ xa (Remote Diagnostics & Troubleshooting) 
-# cho phép kỹ sư hệ thống trích xuất Telemetry Data trực tiếp từ môi trường Cloud.
-# Việc này loại bỏ nhu cầu truy cập thủ công vào Azure Portal để dò tìm lỗi.
-#
-# INPUT PARAMETERS:
-# - service: Chỉ định định danh của Microservice cần phân tích.
-# - lines: Chỉ định số lượng dòng Log gần nhất (Tail Logs) cần truy xuất.
-#
-# DIAGNOSTIC WORKFLOW:
-# 1. TRÍCH XUẤT THÔNG TIN PHIÊN BẢN (REVISION PROFILING):
-#    - Truy vấn Azure CLI (az containerapp revision list) để giám sát:
-#      * Trạng thái định tuyến luồng (Traffic Weight).
-#      * Sức khỏe hệ thống (Health State: Healthy/Unhealthy).
-#      * Trạng thái vòng đời hiện tại (Running State).
-#
-# 2. XUẤT NHẬT KÝ THỰC THI CHUẨN (STDOUT/STDERR):
-#    - Gọi lệnh (az containerapp logs show) nhằm thu thập output của container 
-#      giống với ngữ cảnh giám sát trên localhost.
-#
-# 3. PHÂN TÍCH NHẬT KÝ HỆ THỐNG (LOG ANALYTICS KQL QUERY):
-#    - Kết nối vào Log Analytics Workspace của Azure.
-#    - Thực thi ngôn ngữ truy vấn KQL để tự động sàng lọc các sự kiện nghiêm trọng 
-#      thuộc cấp độ hệ thống như: Container Crash, Lỗi bộ nhớ (Out of Memory - OOM), 
-#      và Tiến trình bị hủy ép buộc (Killed).
-# ==============================================================================
 name: Diagnose Azure Container Apps
 
+# TRIGGERS: Kích hoạt công cụ chẩn đoán từ xa (Remote Diagnostics) theo yêu cầu.
 on:
   workflow_dispatch:
     inputs:
@@ -55,11 +27,13 @@ jobs:
     environment: dev
 
     steps:
+      # Bước 1: Xác thực ủy quyền trên Azure qua Service Principal.
       - name: Azure login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      # Bước 2: Thực thi script truy vấn Telemetry Data trực tiếp từ môi trường đám mây.
       - name: Collect Container Apps logs
         shell: pwsh
         run: |
@@ -91,6 +65,7 @@ jobs:
 
             Write-Host ""
             Write-Host "Revision status:"
+            # REVISION PROFILING: Truy vấn trạng thái vòng đời, định tuyến luồng và sức khỏe hệ thống.
             az containerapp revision list `
               --name $service `
               --resource-group $resourceGroup `
@@ -99,6 +74,7 @@ jobs:
 
             Write-Host ""
             Write-Host "Recent logs:"
+            # CONSOLE LOGS: Truy xuất nhật ký thực thi tiêu chuẩn của Container.
             az containerapp logs show `
               --name $service `
               --resource-group $resourceGroup `
@@ -107,6 +83,7 @@ jobs:
 
             Write-Host ""
             Write-Host "System Logs (Errors/Warnings):"
+            # LOG ANALYTICS KQL QUERY: Tự động sàng lọc các sự kiện nghiêm trọng (Crash, OOM) từ Log Analytics Workspace.
             $query = "ContainerAppSystemLogs_CL | where ContainerAppName_s == '$service' | where Log_s contains 'failed' or Log_s contains 'error' or Log_s contains 'OOM' or Log_s contains 'killed' | project TimeGenerated, Log_s, Reason_s | order by TimeGenerated desc | limit 20"
             $workspaceId = az monitor log-analytics workspace show --resource-group $resourceGroup --workspace-name $LogAnalyticsWorkspace --query customerId -o tsv
             if ($workspaceId) {

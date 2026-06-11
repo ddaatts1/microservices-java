@@ -1,34 +1,11 @@
-# ==============================================================================
-# WORKFLOW: PROVISION AZURE INFRASTRUCTURE (IaC)
-# 
-# DESCRIPTION:
-# Kịch bản tự động hóa cấp phát hạ tầng điện toán đám mây (Infrastructure as Code).
-# Thiết lập toàn bộ hệ sinh thái dịch vụ nền tảng trên Microsoft Azure cho ứng dụng
-# Microservices, bao gồm: Azure Container Apps Environment, Container Registry, 
-# Log Analytics Workspace, và nền tảng cơ sở dữ liệu PostgreSQL Flexible Server.
-#
-# TRIGGERS:
-# - workflow_dispatch: Yêu cầu kích hoạt thủ công, nhằm đảm bảo quy trình thay đổi 
-#   kiến trúc hạ tầng đám mây phải được kiểm soát nghiêm ngặt bởi người có thẩm quyền, 
-#   ngăn ngừa các gián đoạn không mong muốn đối với môi trường đang vận hành.
-#
-# ARCHITECTURE & EXECUTION PIPELINE:
-# 1. AZURE AUTHENTICATION: 
-#    - Dùng thông tin định danh cấp phát cho Service Principal (từ GitHub Secrets) 
-#      để xác thực và ủy quyền trên nền tảng Azure.
-# 2. CONFIGURATION GENERATION: 
-#    - Đọc các biến số môi trường (Variables) theo ngữ cảnh 'dev'.
-#    - Tự động sinh tệp cấu hình trung gian (env.ps1) theo định dạng PowerShell.
-# 3. RESOURCE PROVISIONING: 
-#    - Kích hoạt module PowerShell cốt lõi (create-infra.ps1). Script này sẽ phân giải 
-#      các lệnh Azure CLI (hoặc Bicep/ARM Templates) nhằm xây dựng kiến trúc tài nguyên 
-#      theo cấu hình đã định nghĩa.
-# ==============================================================================
 name: Provision Azure Infrastructure
 
+# TRIGGERS: Yêu cầu kích hoạt thủ công, nhằm đảm bảo quy trình thay đổi kiến trúc hạ tầng đám mây 
+# phải được kiểm soát nghiêm ngặt bởi người có thẩm quyền, ngăn ngừa các gián đoạn không mong muốn.
 on:
   workflow_dispatch:
 
+# Đảm bảo các luồng thực thi không bị chồng chéo, hủy luồng đang chạy nếu có luồng mới.
 concurrency:
   group: azure-infra-${{ github.ref }}
   cancel-in-progress: false
@@ -36,17 +13,23 @@ concurrency:
 jobs:
   provision:
     runs-on: ubuntu-latest
+    # Trỏ định danh môi trường để lấy các biến số cấu hình bảo mật.
     environment: dev
 
     steps:
+      # Bước 1: Tải toàn bộ mã nguồn chứa kịch bản Infrastructure as Code.
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Bước 2: AZURE AUTHENTICATION. Dùng thông tin định danh cấp phát cho Service Principal 
+      # (từ GitHub Secrets) để xác thực và ủy quyền trên nền tảng Azure.
       - name: Azure login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      # Bước 3: CONFIGURATION GENERATION. Đọc các biến số môi trường (Variables) theo ngữ cảnh 'dev',
+      # tự động sinh tệp cấu hình trung gian (env.ps1) theo định dạng PowerShell.
       - name: Generate Azure env config
         shell: pwsh
         run: |
@@ -69,6 +52,8 @@ jobs:
           `$Services = @("user-service", "product-service", "notification-service", "order-service", "gateway-service")
           "@ | Set-Content -Path infra/azure/env.ps1 -Encoding UTF8
 
+      # Bước 4: RESOURCE PROVISIONING. Kích hoạt module PowerShell cốt lõi (create-infra.ps1). 
+      # Script này sẽ phân giải các lệnh Azure CLI nhằm xây dựng kiến trúc tài nguyên theo cấu hình đã định nghĩa.
       - name: Create or update Azure infrastructure
         shell: pwsh
         run: ./infra/azure/create-infra.ps1

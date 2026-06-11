@@ -1,35 +1,15 @@
-# ==============================================================================
-# WORKFLOW: FRONTEND DEPLOYMENT TO AZURE STATIC WEB APPS
-# 
-# DESCRIPTION:
-# Đảm nhiệm việc triển khai phân hệ Frontend (SPA/Static Files) lên hạ tầng 
-# Azure Static Web Apps (ASWA). Quy trình sử dụng Action chuẩn hóa của nền tảng 
-# Azure để đồng bộ hóa mã nguồn tĩnh một cách liền mạch.
-#
-# TRIGGERS:
-# - push: Chỉ kích hoạt khi mã nguồn trong thư mục 'frontend/**' có sự thay đổi 
-#         trên nhánh 'main'. Thiết lập này giúp tránh trigger không cần thiết 
-#         khi lập trình viên chỉ cập nhật mã nguồn ở phân hệ Backend.
-# - workflow_dispatch: Cho phép quản trị viên kích hoạt thủ công từ giao diện GitHub.
-#
-# SECURITY & AUTHENTICATION:
-# - AZURE_STATIC_WEB_APPS_API_TOKEN: Khóa API cấp quyền triển khai (Deployment Token) 
-#   được lưu trữ an toàn trong GitHub Secrets, đảm bảo xác thực quyền truy cập ghi 
-#   (write access) lên tài nguyên ASWA đích.
-#
-# EXECUTION BEHAVIOR:
-# - skip_app_build: Được cấu hình 'true' vì frontend trong dự án là tệp HTML/JS tĩnh 
-#   nguyên bản (Vanilla), không yêu cầu quy trình biên dịch (như Webpack, Vite). 
-#   Mã nguồn sẽ được phân phối trực tiếp lên Global CDN.
-# ==============================================================================
 name: Deploy Frontend to Azure Static Web Apps
 
+# TRIGGERS: Kích hoạt quy trình triển khai phân hệ Frontend (SPA/Static Files) lên hạ tầng Azure Static Web Apps (ASWA).
 on:
+  # Chỉ kích hoạt khi mã nguồn trong thư mục 'frontend/**' có sự thay đổi trên nhánh 'main'. 
+  # Thiết lập này giúp tránh trigger không cần thiết khi lập trình viên chỉ cập nhật mã nguồn ở phân hệ Backend.
   push:
     branches:
       - main
     paths:
       - 'frontend/**'
+  # Cho phép quản trị viên kích hoạt thủ công từ giao diện GitHub.
   workflow_dispatch:
 
 jobs:
@@ -37,18 +17,26 @@ jobs:
     runs-on: ubuntu-latest
     name: Build and Deploy Frontend
     steps:
+      # Bước 1: Tải mã nguồn về máy ảo, bao gồm cả các submodules (nếu có).
       - uses: actions/checkout@v3
         with:
           submodules: true
 
+      # Bước 2: Sử dụng Action chuẩn hóa của nền tảng Azure để đồng bộ hóa mã nguồn tĩnh một cách liền mạch.
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
         with:
+          # SECURITY & AUTHENTICATION: Khóa API cấp quyền triển khai (Deployment Token) được lưu trữ an toàn trong GitHub Secrets.
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
+          
+          # Chỉ định thư mục gốc chứa phân hệ Frontend.
           app_location: "/frontend" 
           api_location: ""
           output_location: "" 
+          
+          # EXECUTION BEHAVIOR: Được cấu hình 'true' vì frontend trong dự án là tệp HTML/JS tĩnh nguyên bản (Vanilla), 
+          # không yêu cầu quy trình biên dịch. Mã nguồn sẽ được phân phối trực tiếp lên Global CDN.
           skip_app_build: true

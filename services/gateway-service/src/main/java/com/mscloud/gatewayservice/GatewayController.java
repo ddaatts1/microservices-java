@@ -44,7 +44,7 @@ public class GatewayController {
 
 
         @GetMapping("")
-    public Map<String, String> health() {
+    public String test() {
         return "gateway!";
     }
 

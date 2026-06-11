@@ -1,6 +1,13 @@
+# ==============================================================================
+# QUY TRÌNH TRIỂN KHAI BACKEND LÊN AZURE CONTAINER APPS (CI/CD)
+# Tác dụng: Tự động phân tích xem bạn vừa sửa code của Microservice nào.
+# Sau đó nó sẽ build Docker Image của đúng Service đó, đẩy lên kho chứa (ACR), 
+# và ra lệnh cho Azure tải bản mới về chạy thay cho bản cũ.
+# ==============================================================================
 name: Deploy Azure Container Apps
 
 on:
+  # Chế độ 1: Tự động chạy ngay sau khi quy trình CI (Test) chạy thành công
   workflow_run:
     workflows:
       - CI
@@ -9,10 +16,12 @@ on:
       - master
     types:
       - completed
+      
+  # Chế độ 2: Cho phép người quản trị bấm chạy bằng tay trên giao diện
   workflow_dispatch:
     inputs:
       deploy_mode:
-        description: Build images or only sync Azure config/secrets and force new revisions.
+        description: Chọn cách chạy (Build code mới & Deploy, hay chỉ Cập nhật lại cấu hình)
         required: true
         type: choice
         default: build-and-deploy
@@ -20,11 +29,11 @@ on:
           - build-and-deploy
           - config-only
       image_tag:
-        description: Image tag to build and deploy. Leave empty to use commit SHA.
+        description: Tag của Docker Image (Mặc định để trống sẽ lấy mã commit SHA)
         required: false
         default: ""
       service:
-        description: Service to deploy, or all
+        description: Bạn muốn deploy Service nào? (auto = tự động tìm service vừa sửa code)
         required: true
         type: choice
         default: auto
@@ -37,6 +46,7 @@ on:
           - order-service
           - gateway-service
 
+# Đảm bảo không có 2 luồng deploy chạy song song đè lên nhau gây lỗi
 concurrency:
   group: azure-container-apps-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
@@ -45,6 +55,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: dev
+    # Chỉ chạy nếu quy trình CI trước đó thành công
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
 
     steps:
@@ -54,6 +65,12 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
+      # ========================================================================
+      # BƯỚC QUAN TRỌNG: SÀNG LỌC SERVICE (THÔNG MINH)
+      # Thay vì mỗi lần sửa code phải build lại cả 5 services tốn thời gian,
+      # script PowerShell này sẽ dùng 'git diff' để kiểm tra xem bạn vừa sửa file ở thư mục nào.
+      # Sửa thư mục nào thì chỉ build và deploy đúng service đó.
+      # ========================================================================
       - name: Select services to deploy
         id: select-services
         shell: pwsh
@@ -63,6 +80,8 @@ jobs:
           $deployMode = "${{ github.event.inputs.deploy_mode }}"
           $manualImageTag = "${{ github.event.inputs.image_tag }}"
           $runSha = "${{ github.event.workflow_run.head_sha || github.sha }}"
+          
+          # Thiết lập Docker Image tag
           if ($deployMode -eq "config-only" -and [string]::IsNullOrWhiteSpace($manualImageTag)) {
             $imageTag = "current"
           } else {
@@ -70,6 +89,7 @@ jobs:
           }
           $forceRevision = "${{ github.event_name }}" -eq "workflow_dispatch" -and $deployMode -eq "config-only"
 
+          # Xử lý chọn service bằng tay
           if ("${{ github.event_name }}" -eq "workflow_dispatch" -and $manualService -and $manualService -ne "auto") {
             if ($manualService -eq "all") {
               $selected = $allServices
@@ -77,6 +97,7 @@ jobs:
               $selected = @($manualService)
             }
           } else {
+            # Tự động dò tìm qua git diff
             try {
               $base = git rev-parse HEAD^1
               $changed = git diff --name-only $base HEAD
@@ -92,11 +113,13 @@ jobs:
             }
 
             foreach ($path in $changed) {
+              # Nếu sửa file pom.xml gốc -> Cần build lại tất cả
               if ($path -eq "pom.xml") {
                 $deployAll = $true
                 break
               }
 
+              # Nếu sửa code trong thư mục của 1 service cụ thể
               foreach ($service in $allServices) {
                 if ($path -like "services/$service/*") {
                   $selected += $service
@@ -111,6 +134,7 @@ jobs:
             }
           }
 
+          # Bỏ qua nếu không có gì thay đổi
           if (-not $selected -or $selected.Count -eq 0) {
             "skip=true" >> $env:GITHUB_OUTPUT
             "services=" >> $env:GITHUB_OUTPUT
@@ -118,6 +142,7 @@ jobs:
             exit 0
           }
 
+          # Truyền danh sách kết quả sang các bước tiếp theo
           $servicesArg = $selected -join ","
           "skip=false" >> $env:GITHUB_OUTPUT
           "services=$servicesArg" >> $env:GITHUB_OUTPUT
@@ -125,15 +150,15 @@ jobs:
           "deploy_mode=$deployMode" >> $env:GITHUB_OUTPUT
           "force_revision=$forceRevision" >> $env:GITHUB_OUTPUT
           Write-Host "Selected services: $servicesArg"
-          Write-Host "Image tag: $imageTag"
-          Write-Host "Deploy mode: $deployMode"
 
+      # Đăng nhập vào Azure
       - name: Azure login
         if: steps.select-services.outputs.skip != 'true'
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      # Tạo file môi trường để truyền vào cho PowerShell
       - name: Generate Azure env config
         if: steps.select-services.outputs.skip != 'true'
         shell: pwsh
@@ -160,6 +185,7 @@ jobs:
           `$Services = @("user-service", "product-service", "notification-service", "order-service", "gateway-service")
           "@ | Set-Content -Path infra/azure/env.ps1 -Encoding UTF8
 
+      # Build Docker Image và Push lên kho chứa Azure Container Registry (ACR)
       - name: Build and push service images
         if: steps.select-services.outputs.skip != 'true' && steps.select-services.outputs.deploy_mode != 'config-only'
         shell: pwsh
@@ -167,6 +193,7 @@ jobs:
           $services = "${{ steps.select-services.outputs.services }}".Split(",", [System.StringSplitOptions]::RemoveEmptyEntries)
           ./infra/azure/build-push-images.ps1 -ServicesToDeploy $services
 
+      # Ra lệnh cho Azure cập nhật mã nguồn đang chạy (Cập nhật Revision)
       - name: Deploy Container Apps
         if: steps.select-services.outputs.skip != 'true'
         shell: pwsh

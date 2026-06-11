@@ -1,30 +1,46 @@
+# ==============================================================================
+# QUY TRÌNH TRIỂN KHAI GIAO DIỆN LÊN AZURE STATIC WEB APPS
+# Tác dụng: Tự động đưa code HTML/CSS/JS tĩnh của giao diện (frontend) 
+# lên dịch vụ Azure Static Web Apps mỗi khi có cập nhật mới.
+# ==============================================================================
 name: Deploy Frontend to Azure Static Web Apps
 
+# Workflow này chỉ chạy khi có ai đó push code vào nhánh 'main' 
+# VÀ chỉ khi các file bị thay đổi nằm bên trong thư mục 'frontend/**'
 on:
   push:
     branches:
       - main
     paths:
       - 'frontend/**'
-  workflow_dispatch:
+  workflow_dispatch: # Cho phép người dùng tự bấm nút chạy bằng tay trên giao diện GitHub
 
 jobs:
   build_and_deploy_job:
     runs-on: ubuntu-latest
     name: Build and Deploy Frontend
     steps:
+      # Bước 1: Tải mã nguồn về máy ảo
       - uses: actions/checkout@v3
         with:
-          submodules: true
+          submodules: true # Tải cả các submodules (nếu có)
 
+      # Bước 2: Dùng action chính thức của Azure để đẩy code Frontend lên mây
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
         with:
+          # Mật khẩu (API Token) để GitHub được phép tải code lên Azure. 
+          # Nằm trong phần Settings > Secrets của GitHub.
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
+          
+          # Chỉ ra thư mục chứa code giao diện
           app_location: "/frontend" 
           api_location: ""
           output_location: "" 
+          
+          # Do dự án này dùng HTML tĩnh không cần build (như React/Vue phải build ra build/)
+          # Nên đặt skip_app_build = true để bỏ qua bước build, up thẳng file lên luôn.
           skip_app_build: true

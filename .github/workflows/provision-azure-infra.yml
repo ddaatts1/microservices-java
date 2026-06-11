@@ -1,5 +1,13 @@
+# ==============================================================================
+# QUY TRÌNH TỰ ĐỘNG KHỞI TẠO HẠ TẦNG (INFRASTRUCTURE AS CODE)
+# Tác dụng: Chỉ cần 1 click, kịch bản này sẽ tự động tạo toàn bộ "đất đai" trên Azure 
+# (Database, Container Apps Environment, Registry, Log Analytics...) 
+# thay vì phải lên giao diện web Azure click bằng tay từng dịch vụ một.
+# ==============================================================================
 name: Provision Azure Infrastructure
 
+# workflow_dispatch nghĩa là workflow này không chạy tự động khi push code, 
+# mà chỉ chạy khi có người quản trị bấm nút "Run workflow" bằng tay.
 on:
   workflow_dispatch:
 
@@ -10,17 +18,22 @@ concurrency:
 jobs:
   provision:
     runs-on: ubuntu-latest
-    environment: dev
+    environment: dev # Lấy các biến môi trường (Variables) ở mục 'dev' trong repo settings
 
     steps:
+      # Bước 1: Tải code chứa kịch bản tạo hạ tầng về
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Bước 2: Đăng nhập vào Azure bằng tài khoản dịch vụ (Service Principal)
       - name: Azure login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      # Bước 3: Tạo một file cấu hình môi trường (env.ps1) 
+      # bằng cách đọc các biến từ GitHub (vars.xxx) và điền vào file.
+      # File này sẽ được dùng cho các script PowerShell ở bước sau.
       - name: Generate Azure env config
         shell: pwsh
         run: |
@@ -43,6 +56,8 @@ jobs:
           `$Services = @("user-service", "product-service", "notification-service", "order-service", "gateway-service")
           "@ | Set-Content -Path infra/azure/env.ps1 -Encoding UTF8
 
+      # Bước 4: Chạy script PowerShell để ra lệnh cho Azure tạo tài nguyên.
+      # Script này nằm ở thư mục infra/azure/create-infra.ps1
       - name: Create or update Azure infrastructure
         shell: pwsh
         run: ./infra/azure/create-infra.ps1

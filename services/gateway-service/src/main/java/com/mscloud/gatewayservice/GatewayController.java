@@ -43,7 +43,7 @@ public class GatewayController {
 
 
 
-        @GetMapping("")
+        @GetMapping("/test")
     public String test() {
         return "gateway!";
     }
